@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]  # Minimum version required
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reyna"
+version = "0.1.0"
+description = "A minimal overhead, vectorised, polygonal discontinuous Galerkin finite element library."
+authors = [
+    { name = "mattevs24", email = "matt.evans2411@gmail.com" }
+]
+readme = "README.md"
+license = { file = "LICENSE.txt", text = "MIT"}
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.18.0",
+    "scipy>=1.4.0",
+    "shapely>=2.0.0",
+    "matplotlib>3.4.0"
+]
+keywords = [
+    "discontinuous", "Galerkin", "finite", "element", "numerics", "methods", "numerical analysis",
+    "dicontinuous Galerkin", "dG", "finite element methods", "NA", "pdes", "partial", "differential", "equations",
+    "partial differential equations", "linear algebra", "LA", "sparse", "matrices"
+
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.8",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers"
+]
+
+[tool.setuptools.package-data]
+"reyna._data.quadratures" = ["*"]  # Include .txt files in my_package/data

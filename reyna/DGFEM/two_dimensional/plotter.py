@@ -1,0 +1,107 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import mpl_toolkits.mplot3d as a3
+import matplotlib.cm as cm
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
+
+from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import tensor_leg
+from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import Basis_index2D
+
+
+def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree) -> None:
+    """
+    This can only plot the poly_degree = poly_degree_REM = 1 polygonal decompositions.
+    """
+
+    x_min, x_max, y_min, y_max = np.inf, -np.inf, np.inf, -np.inf
+
+    fig, ax_poly = plt.subplots(subplot_kw={'projection': '3d'})
+
+    if poly_degree == 0:
+        for t in range(geometry.n_elements):
+            elem = geometry.mesh.filtered_regions[t]
+            nodes = geometry.nodes[elem, :]
+
+            # create plot
+            vtx = np.hstack((nodes, np.atleast_2d(np.array(nodes.shape[0] * [numerical_solution[t]])).T))
+            tri = a3.art3d.Poly3DCollection([vtx])
+
+            u_mean = np.mean(numerical_solution)
+            U_max = np.max(numerical_solution)
+
+            tri.set_facecolor([abs(u_mean / U_max), abs(u_mean / U_max), 1 - abs(u_mean / U_max)])
+
+            tri.set_edgecolor('k')
+            ax_poly.add_collection3d(tri)
+
+            ax_poly.set_zlim(None, None)  # Auto-scale the z-axis based on data
+    else:
+        Lege_ind = Basis_index2D(poly_degree)
+        dim_elem = Lege_ind.shape[0]
+
+        U_max = 0
+        cmap = cm.get_cmap('viridis')  # You can change 'viridis' to other colormaps like 'plasma', 'inferno', etc.
+        for t in range(geometry.n_elements):
+            elem, BDbox = geometry.mesh.filtered_regions[t], geometry.elem_bounding_boxes[t]
+            node = geometry.nodes[elem, :]
+
+            # Calculating nodal values
+            coef = numerical_solution[t*dim_elem:(t+1)*dim_elem]
+            h = 0.5 * np.array([BDbox[1] - BDbox[0], BDbox[3] - BDbox[2]])
+            m = 0.5 * np.array([BDbox[1] + BDbox[0], BDbox[3] + BDbox[2]])
+            P = np.zeros((node.shape[0], dim_elem))
+            for i in range(dim_elem):
+                P[:, i] = tensor_leg(node, m, h, Lege_ind[i, :])
+
+            u_DG_val = np.matmul(P, coef)
+            U_max = np.maximum(U_max, np.max(abs(u_DG_val)))
+
+            x_min = np.minimum(x_min, np.min(node[:, 0]))
+            x_max = np.maximum(x_max, np.max(node[:, 0]))
+            y_min = np.minimum(y_min, np.min(node[:, 1]))
+            y_max = np.maximum(y_max, np.max(node[:, 1]))
+
+        for t in range(geometry.n_elements):
+            elem, BDbox = geometry.mesh.filtered_regions[t], geometry.elem_bounding_boxes[t]
+            node = geometry.nodes[elem, :]
+
+            # Calculating nodal values
+            coef = numerical_solution[t*dim_elem:(t+1)*dim_elem]
+            h = 0.5 * np.array([BDbox[1] - BDbox[0], BDbox[3] - BDbox[2]])
+            m = 0.5 * np.array([BDbox[1] + BDbox[0], BDbox[3] + BDbox[2]])
+
+            P = np.zeros((node.shape[0], dim_elem))
+            for i in range(dim_elem):
+                P[:, i] = tensor_leg(node, m, h, Lege_ind[i, :])
+
+            u_DG_val = np.matmul(P, coef)
+
+            # create plot
+            vtx = np.hstack((node, u_DG_val[:, np.newaxis]))
+            poly = a3.art3d.Poly3DCollection([np.array(vtx)])
+            u_mean = np.mean(u_DG_val)
+
+            # u_DG_val = np.where(u_DG_val < 0, 0, u_DG_val)
+
+            # Normalize u_DG_val for colormap
+            # norm = plt.Normalize(np.min(u_DG_val), np.max(u_DG_val))
+            # colors = cmap(norm(u_DG_val))
+
+            poly.set_facecolor([abs(u_mean/U_max), abs(u_mean/U_max), 1-abs(u_mean/U_max)])
+
+            poly.set_edgecolor('k')
+            ax_poly.add_collection3d(poly)
+
+            ax_poly.set_zlim(None, None)  # Auto-scale the z-axis based on data
+
+    ax_poly.set_xlim(x_min, x_max)
+    ax_poly.set_ylim(y_min, y_max)
+
+    # Construct the filename
+    ax_poly.set_xlabel(r'$x$')
+    ax_poly.set_ylabel(r'$y$')
+    ax_poly.set_zlabel(r'$u$')
+
+    plt.show()
