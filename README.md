@@ -29,15 +29,7 @@ pip install git+https://github.com/mattevs24/reyna.git
 
 ## Example Usage
 
-Basic Example: Solving a Simple PDE
-python
-Copy
-Edit
-import numpy as np
-import matplotlib.pyplot as plt
-from polygonal_finite_elements import Mesh, Solver
-
-### Create a simple mesh
+### Create a Simple Mesh
 
 A simple example to begin with is the `RectangleDomain` object. This requires just the bounding
 box as an input. In this case, we consider the unit square; $[0, 1]^2$. We then use `poly_mesher` 
@@ -172,7 +164,6 @@ Fork the repository.
 Create a new branch for your feature or bug fix.
 Write tests for your changes.
 Submit a pull request.
-Please follow the Code of Conduct and check the Contribution Guidelines.
 
 ## License
 
