@@ -2,15 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from shapely import Polygon, Point
 
-from polyfem.polymesher.poly_mesher_domain import RectangleDomain
-from polyfem.polymesher.poly_mesher_main import poly_mesher
-from polyfem.polymesher.poly_mesher_clean import poly_mesher_cleaner
-from geometry import DGFEMGeometry
+from reyna.polymesher.two_dimensional.domains import CircleCircleDomain
+from reyna.polymesher.two_dimensional.main import poly_mesher, poly_mesher_cleaner
+from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
 from main import DGFEM
-from _auxilliaries.plotting_utils import plot_DG
+# from plotter import plot_DG
 
-dom = RectangleDomain(np.array([[0, 1], [0, 1]]))
 
 # Section: advection testing
 
@@ -34,6 +32,8 @@ dom = RectangleDomain(np.array([[0, 1], [0, 1]]))
 
 # Section: diffusion-advection-reaction
 
+# TODO: dg norm not converging fast enough? may be the elliptic and hyperbolic boundary
+
 diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)
 advection = lambda x: np.ones(x.shape, dtype=float)
 reaction = lambda x: -2 * np.pi ** 2 * np.ones(x.shape[0], dtype=float)
@@ -51,52 +51,97 @@ def grad_solution(x: np.ndarray):
 
 n_elements = [32, 64, 128, 256, 512, 1024, 2048]
 
-h_s = []
-dg_norms = []
-l2_norms = []
-h1_norms = []
+h_s_dict = {}
+dg_norms_dict = {}
+l2_norms_dict = {}
+h1_norms_dict = {}
 
-# for n_r in n_elements:
-#
-#     poly_mesh = poly_mesher(dom, max_iterations=10, n_points=n_r)
-#     poly_mesh = poly_mesher_cleaner(poly_mesh)
-#     geometry = DGFEMGeometry(poly_mesh)
-#
-#     dg = DGFEM(geometry, polynomial_degree=3)
-#     dg.add_data(
-#         diffusion=diffusion,
-#         advection=advection,
-#         reaction=reaction,
-#         dirichlet_bcs=solution,
-#         forcing=forcing
-#     )
-#     dg.dgfem(solve=True)
-#
-#     # plot_DG(dg.solution, geometry, dg.polydegree)
-#
-#     dg_error, l2_error, h1_error = dg.errors(exact_solution=solution,
-#                                              div_advection=lambda x: np.zeros(x.shape[0]),
-#                                              grad_exact_solution=grad_solution)
-#     dg_norms.append(dg_error)
-#     l2_norms.append(l2_error)
-#     h1_norms.append(h1_error)
-#
-#     _h = -np.inf
-#     for element in geometry.elements:
-#         poly = Polygon(geometry.nodes[element, :])
-#         box = poly.minimum_rotated_rectangle
-#         _x, _y = box.exterior.coords.xy
-#         edge_length = (Point(_x[0], _y[0]).distance(Point(_x[1], _y[1])),
-#                        Point(_x[1], _y[1]).distance(Point(_x[2], _y[2])))
-#         _h = max(_h, max(edge_length))
-#
-#     h_s.append(_h)
+for p in [1, 2, 3]:
+
+    h_s = []
+    dg_norms = []
+    l2_norms = []
+    h1_norms = []
+
+    for n_r in n_elements:
+
+        dom = CircleCircleDomain()
+        poly_mesh = poly_mesher(dom, max_iterations=10, n_points=n_r)
+        poly_mesh = poly_mesher_cleaner(poly_mesh)
+        geometry = DGFEMGeometry(poly_mesh)
+
+        dg = DGFEM(geometry, polynomial_degree=p)
+        dg.add_data(
+            diffusion=diffusion,
+            dirichlet_bcs=solution,
+            forcing=forcing
+        )
+        dg.dgfem(solve=True)
+
+        # plot_DG(dg.solution, geometry, dg.polydegree)
+
+        dg_error, l2_error, h1_error = dg.errors(exact_solution=solution,
+                                                 div_advection=lambda x: np.zeros(x.shape[0]),
+                                                 grad_exact_solution=grad_solution)
+        dg_norms.append(float(dg_error))
+        l2_norms.append(float(l2_error))
+        h1_norms.append(h1_error)
+
+        _h = -np.inf
+        for element in geometry.mesh.filtered_regions:
+            poly = Polygon(geometry.nodes[element, :])
+            box = poly.minimum_rotated_rectangle
+            _x, _y = box.exterior.coords.xy
+            edge_length = (Point(_x[0], _y[0]).distance(Point(_x[1], _y[1])),
+                           Point(_x[1], _y[1]).distance(Point(_x[2], _y[2])))
+            _h = max(_h, max(edge_length))
+
+        h_s.append(_h)
     # plot_DG(dg.solution, geometry, dg.polydegree)
 
-print(h_s)
-print(dg_norms)
-print(l2_norms)
-print(h1_norms)
+    h_s_dict[p] = h_s
+    dg_norms_dict[p] = dg_norms
+    l2_norms_dict[p] = l2_norms
+    h1_norms_dict[p] = h1_norms
+
+x_ = np.linspace(0.03, 0.3, 100)
+
+fig, axes = plt.subplots(1, 3)
+
+for k, v in dg_norms_dict.items():
+    axes[0].plot(h_s_dict[p], v, label=f'P{k}')
+
+axes[0].plot(x_, 10 * x_ ** 1.5, linestyle='--', label=r'$h^{\frac{3}{2}}$')
+axes[0].plot(x_, 5 * x_ ** 2.5, linestyle='--', label=r'$h^{\frac{5}{2}}$')
+axes[0].plot(x_, 2.0 * x_ ** 3.5, linestyle='--', label=r'$h^{\frac{7}{2}}$')
+
+axes[0].legend(title='dG norm')
+axes[0].set_xscale('log')
+axes[0].set_yscale('log')
+
+for k, v in h1_norms_dict.items():
+    axes[1].plot(h_s_dict[p], v, label=f'P{k}')
+
+axes[1].plot(x_, 4.0 * x_ ** 1.0, linestyle='--', label=r'$h^{1}$')
+axes[1].plot(x_, 0.5 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
+axes[1].plot(x_, 0.2 * x_ ** 3.0, linestyle='--', label=r'$h^{3}$')
+
+axes[1].legend(title='H1 norm')
+axes[1].set_xscale('log')
+axes[1].set_yscale('log')
+
+for k, v in l2_norms_dict.items():
+    axes[2].plot(h_s_dict[p], v, label=f'P{k}')
+
+axes[2].plot(x_, 4.0 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
+axes[2].plot(x_, 0.5 * x_ ** 3.0, linestyle='--', label=r'$h^{3}$')
+axes[2].plot(x_, 0.2 * x_ ** 4.0, linestyle='--', label=r'$h^{4}$')
+
+axes[2].legend(title='L2 norm')
+axes[2].set_xscale('log')
+axes[2].set_yscale('log')
+
+plt.show()
 
 
 # # Section: hyperbolic test case results.
@@ -182,75 +227,62 @@ print(h1_norms)
 
 # Section: A-R-D results
 
-x_ = np.linspace(0.03, 0.3, 100)
-
-fig, axes = plt.subplots(1, 3)
-
-axes[0].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [0.19301566, 0.25803658, 0.27919298, 0.25263494, 0.20184667, 0.13850584, 0.0905836], label='P1')
-axes[0].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [0.11470672, 0.0592882, 0.02939582, 0.01271831, 0.00605886, 0.00304046, 0.00159609], label='P2')
-axes[0].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [0.01061168, 0.00321364, 0.00112746, 0.00032997, 0.00013185, 4.70799898e-05, 0.00091057], label='P3')
-
-axes[0].plot(x_, 10 * x_ ** 1.5, linestyle='--', label=r'$h^{\frac{3}{2}}$')
-axes[0].plot(x_, 5 * x_ ** 2.5, linestyle='--', label=r'$h^{\frac{5}{2}}$')
-axes[0].plot(x_, 2.0 * x_ ** 3.5, linestyle='--', label=r'$h^{\frac{7}{2}}$')
-
-axes[0].legend(title='dG norm')
-axes[0].set_xscale('log')
-axes[0].set_yscale('log')
-
-axes[1].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [2.188204303271978, 2.0485208960465453, 1.9231651505376066, 1.2048194230693117,
-     0.7447381555770124, 0.3475257332427112, 0.16017107813543244], label='P1')
-axes[1].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [0.3158092050943117, 0.07833488189410755, 0.026982107674756693, 0.010177973534367819,
-     0.00458650164147804, 0.0022235493184868532, 0.0011448448890475661], label='P2')
-axes[1].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [0.00947558884130219, 0.002540522241372895, 0.0009204731557355635, 0.0002815499452733829,
-     0.00010934254826263515, 3.823437023693224e-05, 0.0005131254136328948], label='P3')
-
-axes[1].plot(x_, 4.0 * x_ ** 1.0, linestyle='--', label=r'$h^{1}$')
-axes[1].plot(x_, 0.5 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
-axes[1].plot(x_, 0.2 * x_ ** 3.0, linestyle='--', label=r'$h^{3}$')
-
-axes[1].legend(title='H1 norm')
-axes[1].set_xscale('log')
-axes[1].set_yscale('log')
-
-axes[2].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [0.49144127, 0.45853946, 0.42911422, 0.26648542, 0.16335731, 0.07422686, 0.03204918], label='P1')
-axes[2].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [0.06786793, 0.01467901, 0.00404325, 0.00063451, 0.00014074, 2.76166908e-05, 6.00911208e-06], label='P2')
-axes[2].plot(
-    [0.27203498241298707, 0.17659926376169954, 0.1382651100773942, 0.09806406440271342,
-     0.07166092004527838, 0.04999316531748002, 0.0356082213421404],
-    [0.00056271, 6.5312014e-05, 1.32595665e-05, 2.36796401e-06, 6.63163309e-07,
-     1.50933015e-07, 1.0121773e-06], label='P3')
-
-axes[2].plot(x_, 4.0 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
-axes[2].plot(x_, 0.5 * x_ ** 3.0, linestyle='--', label=r'$h^{3}$')
-axes[2].plot(x_, 0.2 * x_ ** 4.0, linestyle='--', label=r'$h^{4}$')
-
-axes[2].legend(title='L2 norm')
-axes[2].set_xscale('log')
-axes[2].set_yscale('log')
-
-plt.show()
+# x_ = np.linspace(0.03, 0.3, 100)
+#
+# fig, axes = plt.subplots(1, 3)
+#
+# axes[0].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [2.346634332908426, 1.7937323299955852, 1.1387680917394727, 0.7105605063374989, 0.4685159458674491, 0.30113002756704943, 0.20370196943122823], label='P1')
+# axes[0].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [0.4183563146088462, 0.21501541161234874, 0.10450849358764143, 0.04524211627546161, 0.022683022052941256, 0.010474201707046472, 0.04280536334859797], label='P2')
+# axes[0].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [0.061161789241129534, 0.03126735062706602, 0.007318307192585631, 0.002124769365151173, 0.0006880296895483801, 0.00023020433184232867, 0.0007551007451436769], label='P3')
+#
+# axes[0].plot(x_, 10 * x_ ** 1.5, linestyle='--', label=r'$h^{\frac{3}{2}}$')
+# axes[0].plot(x_, 5 * x_ ** 2.5, linestyle='--', label=r'$h^{\frac{5}{2}}$')
+# axes[0].plot(x_, 2.0 * x_ ** 3.5, linestyle='--', label=r'$h^{\frac{7}{2}}$')
+#
+# axes[0].legend(title='dG norm')
+# axes[0].set_xscale('log')
+# axes[0].set_yscale('log')
+#
+# axes[1].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [1.7731409626445034, 1.3812591405586117, 1.0187429282967113, 0.5386068729905321, 0.36218541734977483, 0.24233767009847654, 0.1694210809252341], label='P1')
+# axes[1].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [0.3346935689973194, 0.1625845510976792, 0.07505682298785475, 0.033517352043957074, 0.01615930924684276, 0.007565555468017206, 0.027305761778721013], label='P2')
+# axes[1].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [0.051231084932843514, 0.026399131295240616, 0.006398374711499523, 0.0018036939192357135, 0.0005658948697874793, 0.00019107762441267982, 0.00043824534722527504], label='P3')
+#
+# axes[1].plot(x_, 4.0 * x_ ** 1.0, linestyle='--', label=r'$h^{1}$')
+# axes[1].plot(x_, 0.5 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
+# axes[1].plot(x_, 0.2 * x_ ** 3.0, linestyle='--', label=r'$h^{3}$')
+#
+# axes[1].legend(title='H1 norm')
+# axes[1].set_xscale('log')
+# axes[1].set_yscale('log')
+#
+# axes[2].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [0.23623885045468193, 0.19096058424504028, 0.1370689633801626, 0.04687831192010336, 0.022566382595534683, 0.00950315734005893, 0.004447376541899582], label='P1')
+# axes[2].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [0.029774049949736342, 0.010321870921610297, 0.003406346396491229, 0.0006982068288817749, 0.0001841233533952441, 4.923112889862657e-05, 0.00010222364385218264], label='P2')
+# axes[2].plot(
+#     [0.5240679570470221, 0.3439711004492267, 0.318375974752493, 0.1734388172008865, 0.11940086683160693, 0.08219779340885558, 0.059914707705453964],
+#     [0.0024082003698252755, 0.0011381702121227484, 0.00017807356165610148, 2.6259385099624214e-05, 4.841136440383795e-06, 1.0747657691725399e-06, 1.3464769710841287e-06], label='P3')
+#
+# axes[2].plot(x_, 4.0 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
+# axes[2].plot(x_, 0.5 * x_ ** 3.0, linestyle='--', label=r'$h^{3}$')
+# axes[2].plot(x_, 0.2 * x_ ** 4.0, linestyle='--', label=r'$h^{4}$')
+#
+# axes[2].legend(title='L2 norm')
+# axes[2].set_xscale('log')
+# axes[2].set_yscale('log')
+#
+# plt.show()

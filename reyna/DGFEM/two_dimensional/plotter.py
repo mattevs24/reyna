@@ -33,6 +33,11 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
 
             tri.set_facecolor([abs(u_mean / U_max), abs(u_mean / U_max), 1 - abs(u_mean / U_max)])
 
+            x_min = np.minimum(x_min, np.min(nodes[:, 0]))
+            x_max = np.maximum(x_max, np.max(nodes[:, 0]))
+            y_min = np.minimum(y_min, np.min(nodes[:, 1]))
+            y_max = np.maximum(y_max, np.max(nodes[:, 1]))
+
             tri.set_edgecolor('k')
             ax_poly.add_collection3d(tri)
 

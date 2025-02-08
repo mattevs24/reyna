@@ -8,7 +8,7 @@ from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import Lege
 def quad_GL(n: int):
 
     file_path = str(resources.files('reyna._data.quadratures').joinpath(f"array_GL_{int(n)}"))
-    data = np.loadtxt(file_path, delimiter=",")
+    data = np.atleast_2d(np.loadtxt(file_path, delimiter=","))
     ref_points = data[:, :1]
     weights = data[:, 1:]
 
@@ -18,7 +18,7 @@ def quad_GL(n: int):
 def quad_GJ1(n: int):
 
     file_path = str(resources.files('reyna._data.quadratures').joinpath(f"array_GJ1_{int(n)}"))
-    data = np.loadtxt(file_path, delimiter=",")
+    data = np.atleast_2d(np.loadtxt(file_path, delimiter=","))
     ref_points = data[:, :1]
     weights = data[:, 1:]
 

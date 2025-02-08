@@ -159,15 +159,35 @@ class DGFEM:
         if self.advection is not None:
 
             self.advection_inflow_boundary = self._advection_contribution_inflow_boundary()
-            self.B += self.advection_inflow_boundary
+            self.B -= self.advection_inflow_boundary
 
             self.forcing_adv_bcs_vector = self._advection_bcs_vector()
-            self.L += self.forcing_adv_bcs_vector
+            self.L -= self.forcing_adv_bcs_vector
 
         print(f"Assembly: {time.time() - _time}")
 
         if solve:
             self.solution = spsolve(self.B, self.L)
+
+        # import matplotlib.pyplot as plt
+        #
+        # dists = []
+        # for point in list(self.geometry.mesh.filtered_points):
+        #     dists.append((point * [1.0, 1.0]).sum())
+        #
+        # order = np.argsort(dists)
+        # stretched_order = np.kron(self.dim_elem * order, np.ones(self.dim_elem, dtype=int)) + \
+        #     np.tile(np.arange(self.dim_elem), self.geometry.n_elements)
+        #
+        # self.B = self.B.toarray()
+        #
+        # for i in range(self.B.shape[1]):
+        #     self.B[:, i] = self.B[stretched_order, i]
+        # for i in range(self.B.shape[1]):
+        #     self.B[i, :] = self.B[i, stretched_order]
+        #
+        # plt.imshow(self.B != 0.0)
+        # plt.show()
 
     def _intialise_quadrature(self):
 
@@ -337,12 +357,11 @@ class DGFEM:
 
             Dirielem_bdface = self.geometry.boundary_edges_to_element_triangle[v]
             local_triangle = self.geometry.subtriangulation[Dirielem_bdface, :]
-            triangle_vertices = self.geometry.nodes[local_triangle, :]
             element_idx = self.geometry.boundary_edges_to_element[v]
 
             vec_DiriBDface = C_vecDiriface(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
-                triangle_vertices,
+                self.geometry.nodes[local_triangle, :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.geometry.boundary_normals[v, :],
                 self.edge_reference_quadrature,
@@ -362,7 +381,7 @@ class DGFEM:
     def _advection_contribution_inflow_boundary(self):
 
         """
-        This method generates the portion of the stiffness matrix associated with the outflow
+        This method generates the portion of the stiffness matrix associated with the inflow
         boundary for the upwind scheme used.
         """
 

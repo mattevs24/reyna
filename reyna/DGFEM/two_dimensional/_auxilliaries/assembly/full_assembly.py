@@ -65,7 +65,7 @@ def localstiff(nodes: np.ndarray,
 
     if advection is not None:
         b_val = advection(P_Qpoints)
-        z -= (tensor_leg_array * weights.T) @ np.sum(b_val[None, ...] * gradtensor_leg_array, axis=-1).T
+        z += np.sum(b_val[None, ...] * gradtensor_leg_array, axis=-1) @ (tensor_leg_array * weights.T).T
 
     if reaction is not None:
         c_val = reaction(P_Qpoints)
@@ -192,14 +192,14 @@ def int_localstiff(nodes: np.ndarray,
         else:
             correction_indecies = [0, 1]
 
-        z_1 = (b_dot_n * tensor_leg_array[:, correction_indecies[0]]) @ \
-              (weights * tensor_leg_array[:, correction_indecies[0]].T)
-        z_2 = -(b_dot_n * tensor_leg_array[:, correction_indecies[0]]) @ \
-               (weights * tensor_leg_array[:, correction_indecies[1]].T)
+        z_1 = -((b_dot_n * tensor_leg_array[:, correction_indecies[0]]) @
+                (weights * tensor_leg_array[:, correction_indecies[0]].T)).T
+        z_2 = ((b_dot_n * tensor_leg_array[:, correction_indecies[0]]) @
+               (weights * tensor_leg_array[:, correction_indecies[1]].T)).T
 
         if correction:
-            z[dim_elem:, :] += np.hstack((z_2, z_1))
+            z[:, dim_elem:] += np.vstack((z_2, z_1))
         else:
-            z[:dim_elem, :] += np.hstack((z_1, z_2))
+            z[:, :dim_elem] += np.vstack((z_1, z_2))
 
     return De * z

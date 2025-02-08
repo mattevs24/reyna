@@ -19,22 +19,6 @@ class BoundaryInformation:
         if 'tolerence' in kwargs:
             self.tolerence = kwargs.pop('tolerence')
 
-        # Elliptical boundary information
-        self.elliptical_edges: typing.Optional[np.ndarray] = None
-        self.elliptical_edge2elem: typing.Optional[np.ndarray] = None
-        self.elliptical_edge2elem_tri: typing.Optional[np.ndarray] = None
-        self.elliptical_normals: typing.Optional[np.ndarray] = None
-
-        self.inflow_edges: typing.Optional[np.ndarray] = None
-        self.inflow_edge2elem: typing.Optional[np.ndarray] = None
-        self.inflow_edge2elem_tri: typing.Optional[np.ndarray] = None
-        self.inflow_normals: typing.Optional[np.ndarray] = None
-
-        self.outflow_edges: typing.Optional[np.ndarray] = None
-        self.outflow_edge2elem: typing.Optional[np.ndarray] = None
-        self.outflow_edge2elem_tri: typing.Optional[np.ndarray] = None
-        self.outflow_normals: typing.Optional[np.ndarray] = None
-
         self.elliptical_dirichlet_indecies: typing.Optional[np.ndarray] = None
         self.elliptical_neumann_indecies: typing.Optional[np.ndarray] = None
         self.inflow_indecies: typing.Optional[np.ndarray] = None
@@ -48,8 +32,7 @@ class BoundaryInformation:
     def split_boundaries(self,
                          geometry: DGFEMGeometry,
                          advection: typing.Callable[[np.ndarray], np.ndarray],
-                         diffusion: typing.Callable[[np.ndarray], np.ndarray],
-                         generate_all_info: bool = False):
+                         diffusion: typing.Callable[[np.ndarray], np.ndarray]):
 
         self.geometry = geometry
 
@@ -85,12 +68,6 @@ class BoundaryInformation:
                     self.elliptical_dirichlet_indecies[dirichlet_inflow], dtype=int
                 )
 
-            # Separate out the elliptical boundary information
-            if generate_all_info:
-                self.elliptical_edges = geometry.boundary_edges[~hyp_index, :]
-                self.elliptical_edge2elem = geometry.boundary_edges_to_element[~hyp_index]
-                self.elliptical_normals = geometry.boundary_normals[~hyp_index, :]
-
         hyperbolic_indices = np.array(
             [index for index, v in enumerate(hyp_index) if v]
         )
@@ -103,16 +80,6 @@ class BoundaryInformation:
 
             self.inflow_indecies = hyperbolic_indices[inflow_indecies]
             self.outflow_indecies = hyperbolic_indices[~inflow_indecies]
-
-            if generate_all_info:
-
-                self.inflow_edges = geometry.boundary_edges[self.inflow_indecies, :]
-                self.inflow_edge2elem = geometry.boundary_edges_to_element[self.inflow_indecies]
-                self.inflow_normals = geometry.boundary_normals[self.inflow_indecies, :]
-
-                self.outflow_edges = geometry.boundary_edges[hyperbolic_indices[~inflow_indecies], :]
-                self.outflow_edge2elem = geometry.boundary_edges_to_element[hyperbolic_indices[~inflow_indecies]]
-                self.outflow_normals = geometry.boundary_normals[hyperbolic_indices[~inflow_indecies], :]
 
         self.generated_boundary_information = True
 
