@@ -15,27 +15,19 @@ finite elements, providing a flexible and efficient way to approximate solutions
 
 You can install the package via pip. First, clone the repository and then install it using pip:
 
-Install from PyPI (if available):
-sh
-Copy
-Edit
-pip install polygonal-finite-elements
-Install from source:
-sh
-Copy
-Edit
-git clone https://github.com/yourusername/polygonal-finite-elements.git
-cd polygonal-finite-elements
-pip install .
-Optional dependencies:
-matplotlib: for visualizing meshes and solution fields.
-scipy: for additional solvers and utilities.
-Install optional dependencies with:
+Install from PyPI:
 
 ```shell
 pip install reyna
 ```
-Example Usage
+
+Install from source:
+
+```shell
+pip install git+https://github.com/mattevs24/reyna.git
+```
+
+## Example Usage
 
 Basic Example: Solving a Simple PDE
 python
@@ -45,47 +37,134 @@ import numpy as np
 import matplotlib.pyplot as plt
 from polygonal_finite_elements import Mesh, Solver
 
-## Create a simple 2D mesh (triangle-based)
-mesh = Mesh.generate_2d_mesh(shape="triangle", num_elements=100)
+### Create a simple mesh
 
-## Define the PDE and boundary conditions
-def pde_function(x, y):
-    return np.sin(np.pi * x) * np.cos(np.pi * y)
+A simple example to begin with is the `RectangleDomain` object. This requires just the bounding
+box as an input. In this case, we consider the unit square; $[0, 1]^2$. We then use `poly_mesher` 
+to generate a bounded Voronoi mesh of the domain. This uses Lloyd's algorithm, which can produce
+edges that are machine precision in length. To avoid this, apply the `poly_mesher_cleaner` to remove
+these.
 
-boundary_conditions = {'Dirichlet': {'left': 0, 'right': 0}}
+```python
+import numpy as np
 
-## Assemble the system matrix and load vector
-assembler = mesh.assembler(pde_function)
-A, b = assembler.assemble(boundary_conditions)
+from reyna.polymesher.two_dimensional.domains import RectangleDomain
+from reyna.polymesher.two_dimensional.main import poly_mesher, poly_mesher_cleaner
 
-## Solve the system
-solver = Solver()
-solution = solver.solve(A, b)
+domain = RectangleDomain(bounding_box=np.array([[0, 1], [0, 1]]))
+poly_mesh = poly_mesher(domain, max_iterations=10, n_points=1024)
+poly_mesh = poly_mesher_cleaner(poly_mesh)
+```
 
-## Visualize the solution
-plt.tricontourf(mesh.nodes[:,0], mesh.nodes[:,1], mesh.elements, solution)
-plt.colorbar()
-plt.show()
-Mesh Generation
-The package includes functions to create meshes for various element types:
+### Generating the Geometry Information
 
-'''{python}
-Copy
-Edit
-mesh = Mesh.generate_2d_mesh(shape="quadrilateral", num_elements=50)
-Solving a PDE
-Once the mesh is generated, use the Solver class to solve the problem:
+The DGFEM code requires additional information about the mesh to be able to run, including which edges
+are boundary edges and their corresponding normals as well as information on a given subtriagulation to 
+be able to numerically integrate with the required precision. This is done using the `DGFEMgeometry` function.
 
-python
-Copy
-Edit
-solver = Solver()
-solution = solver.solve(A, b)
-Documentation
+```python
+from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
-For detailed usage and API documentation, please visit our Wiki.
+geometry = DGFEMGeometry(poly_mesh)
+```
 
-Contributing
+### Defining the Partial Differential Equation
+
+To define the PDE, we need to call the DGFEM object. We then add data in the form of the general
+coefficients for a (up-to) second order PDE of the form
+
+$$
+-\nabla\cdot(a\nabla u) + b\cdot\nabla u + cu = f
+$$
+
+where $a$ is the diffusion tensor, $b$ is the advection vector, $c$ is the reation functional and
+$f$ is the forcing functional. All of these functions must be able to take in a (N, 2) array of 
+points and output tensors of the correct shape; (N, 2, 2), (N, 2), (N,) and (N,) respectively. An 
+example is given
+
+```python
+diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)
+advection = lambda x: np.ones(x.shape, dtype=float)
+reaction = lambda x: -2 * np.pi ** 2 * np.ones(x.shape[0], dtype=float)
+forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
+                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1]))
+
+solution = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
+```
+
+We use the solution function here as the boundary conditions for the solver.
+
+### Adding data and Assembly
+
+We can now call the solver, add the data and assemble.
+
+```python
+
+from reyna.DGFEM.two_dimensional.main import DGFEM
+
+dg = DGFEM(geometry, polynomial_degree=1)
+
+dg.add_data(
+    diffusion=diffusion,
+    advection=advection,
+    reaction=reaction,
+    dirichlet_bcs=solution,
+    forcing=forcing
+    )
+
+dg.dgfem(solve=True)
+```
+
+Setting the `solve` input to `True` generates the solution vector. If this is `False`, just the
+stiffness matrix and data vector are generated.
+
+### Visualize the solution
+
+We also have a function to plot the data, `plot_DG`, but this is limited to polynomial degree 1
+with limited support for polynomial degree 0. See the example below
+
+```python
+from reyna.DGFEM.two_dimensional.plotter import plot_DG
+
+plot_DG(dg.solution, geometry, dg.polydegree)
+```
+
+### Benchmarking
+
+We have a benchmarking file that may be run availible in the main DGFEM directory. But we also provide
+an example of the code to be able to calculate yourself
+
+```python
+
+def grad_solution(x: np.ndarray):
+    u_x = np.pi * np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
+    u_y = np.pi * np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])
+
+    return np.vstack((u_x, u_y)).T
+
+dg_error, l2_error, h1_error = dg.errors(
+    exact_solution=solution,
+    div_advection=lambda x: np.zeros(x.shape[0]),
+    grad_exact_solution=grad_solution
+)
+```
+
+Often, the error rate is calcuated against the maximal cell diameter; the code for this is included in
+the DGFEM class under the `h` method.
+
+```python
+h = dg.h()
+```
+
+Note that in a purely advection/diffusion problem, some of the norms are unavailable and return
+a `None` value.
+
+## Documentation
+
+For detailed usage and API documentation, please visit our (soon to be) readthedocs. 
+The above example covers most cases and the current docstrings are very thorough.
+
+## Contributing
 
 We welcome contributions! To contribute:
 
