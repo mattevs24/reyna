@@ -30,6 +30,7 @@ class DGFEM:
         approximation required.
         """
         self.geometry = geometry
+        self.h = geometry.h
         self.polydegree = polynomial_degree
 
         # Problem Functions

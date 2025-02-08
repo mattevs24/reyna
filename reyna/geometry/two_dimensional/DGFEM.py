@@ -1,8 +1,11 @@
 import time
+import typing
 
 import numpy as np
 from scipy.spatial import Delaunay
 from scipy.sparse import csr_matrix, find
+from shapely import Polygon, Point
+
 from reyna.polymesher.two_dimensional._auxilliaries.abstraction import PolyMesh
 
 from dataclasses import dataclass
@@ -47,6 +50,8 @@ class DGFEMGeometry:
         self.interior_edges_to_element_triangle = None
         self.boundary_edges_to_element_triangle = None
 
+        self.h: typing.Optional[float] = None
+
         time_generation = False
         if 'time' in kwargs:
             time_generation = kwargs.pop('time')
@@ -74,10 +79,19 @@ class DGFEMGeometry:
         tri_to_poly = []
         elem_bounding_boxes = []
 
+        h_ = -np.inf
+
         for i, elem_i in enumerate(self.mesh.filtered_regions):
 
             elem_bounding_boxes.append([np.min(self.nodes[elem_i, 0]), np.max(self.nodes[elem_i, 0]),
                                         np.min(self.nodes[elem_i, 1]), np.max(self.nodes[elem_i, 1])])
+
+            poly = Polygon(self.nodes[elem_i, :])
+            box = poly.minimum_rotated_rectangle
+            _x, _y = box.exterior.coords.xy
+            edge_length = (Point(_x[0], _y[0]).distance(Point(_x[1], _y[1])),
+                           Point(_x[1], _y[1]).distance(Point(_x[2], _y[2])))
+            h_ = max(h_, max(edge_length))
 
             local_sub_tri = Delaunay(self.nodes[elem_i, :])
 
@@ -95,6 +109,8 @@ class DGFEMGeometry:
             total_edge_y[:n_edges, i] = np.roll(elem_i, -1)
 
             edges_per_elem.append(n_edges)
+
+        self.h = h_
 
         subtriangulation_0 = subtriangulation_0.flatten(order="F")
         subtriangulation_1 = subtriangulation_1.flatten(order="F")

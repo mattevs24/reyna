@@ -1,7 +1,7 @@
 # reyna
 
-A lightweight Python package for solving partial differential equations (PDEs) using polygonal discontinuous Galerkin 
-finite elements, providing a flexible and efficient way to approximate solutions to complex PDEs.
+A lightweight purely Python package for solving partial differential equations (PDEs) using polygonal discontinuous 
+Galerkin finite elements, providing a flexible and efficient way to approximate solutions to complex PDEs.
 
 ### Features
 
@@ -153,7 +153,7 @@ Often, the error rate is calcuated against the maximal cell diameter; the code f
 the DGFEM class under the `h` method.
 
 ```python
-h = dg.h()
+h = dg.h
 ```
 
 Note that in a purely advection/diffusion problem, some of the norms are unavailable and return
@@ -174,24 +174,22 @@ Write tests for your changes.
 Submit a pull request.
 Please follow the Code of Conduct and check the Contribution Guidelines.
 
-License
+## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the LICENSE.md file for details.
 
-Credits
+## Credits & Acknowledgements
 
-This package was developed by Your Name and contributors. Special thanks to [Your Collaborators or Inspiration Source] for their support and insights.
+This package was developed by mattevs24 during a PhD programme funded by the French Alternative Energies 
+and Atomic Energy Commission. A Special thanks to the support of Ansar Calloo, Fraçois Madiot throughout
+the PhD so far. A further thank you to my interal supervisors Tristan Pryer and Luca Zanetti for their role
+in this project too and useful feedback on usability and support. Finally, a thank you to my partner
+reyna who puts up with all this nonsense!
 
-Additional Sections (Optional):
-FAQ – Answer common questions.
-Changelog – List version history and updates.
-Acknowledgments – Mention any external libraries or contributions.
+## Upcoming Updates
 
+There are many features that remain to add to this code! We hope to add support for the following features
 
-
-
-
-
-
-
-This project is licensed under the MIT License. See the LICENSE file for details.
+- Mixed-type problems: support for multiple types of PDE on the same domain.
+- Mixed boundary conditions: support for both Neumann and Robin boundary conditions and combinations of all three Dirichlet, Neumann and Robin boundary conditions.
+- Full readthedocs documentation to support the further developement and use of this package.
