@@ -123,7 +123,7 @@ plot_DG(dg.solution, geometry, dg.polydegree)
 
 For the given example, we have the solution plot
 
-![example](https://github.com/mattevs24/reyna/blob/main/branding/diff_adv_reac.png)
+![example](https://raw.githubusercontent.com/mattevs24/reyna/refs/heads/main/branding/diff_adv_reac.png)
 
 ### Benchmarking
 
@@ -160,8 +160,7 @@ a `None` value.
 There are many predefined domains in the `reyna/polymesher/two_dimensional/domains` folder including this
 more advanced `CircleCircleDomain()` domain;
 
-![example_2](https://github.com/mattevs24/reyna/blob/main/branding/circlecircle_example.png)
-
+![example_2](https://raw.githubusercontent.com/mattevs24/reyna/refs/heads/main/branding/circlecircle_example.png)
 ## Documentation
 
 For detailed usage and API documentation, please visit our (soon to be) readthedocs. 
