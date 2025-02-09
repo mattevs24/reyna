@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reyna"
-version = "0.1.2"
+version = "0.1.3"
 description = "A minimal overhead, vectorised, polygonal discontinuous Galerkin finite element library."
 authors = [
     { name = "mattevs24", email = "matt.evans2411@gmail.com" }

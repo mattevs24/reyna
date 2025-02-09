@@ -121,6 +121,10 @@ from reyna.DGFEM.two_dimensional.plotter import plot_DG
 plot_DG(dg.solution, geometry, dg.polydegree)
 ```
 
+For the given example, we have the solution plot
+
+![example](branding/diff_adv_reac.png)
+
 ### Benchmarking
 
 We have a benchmarking file that may be run availible in the main DGFEM directory. But we also provide
@@ -150,6 +154,13 @@ h = dg.h
 
 Note that in a purely advection/diffusion problem, some of the norms are unavailable and return
 a `None` value.
+
+## A more advanced Domain Example
+
+There are many predefined domains in the `reyna/polymesher/two_dimensional/domains` folder including this
+more advanced `CircleCircleDomain()` domain;
+
+![example_2](branding/circlecircle_example.png)
 
 ## Documentation
 
