@@ -11,9 +11,9 @@ np.set_printoptions(linewidth=400)
 
 solution = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 
-# advection = lambda x: np.ones(x.shape, dtype=float)
-# forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
-#                              np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1]))
+advection = lambda x: np.ones(x.shape, dtype=float)
+forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
+                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1]))
 
 
 def grad_u_exact(x: np.ndarray):
@@ -52,16 +52,16 @@ def grad_u_exact(x: np.ndarray):
 
 # Section: advection testing - CircleCircle
 
-# dom = LShapeDomain()
-# poly_mesh = poly_mesher(dom, max_iterations=5, n_points=5000)
-# poly_mesh = poly_mesher_cleaner(poly_mesh)
-# geometry = DGFEMGeometry(poly_mesh)
-#
-# dg = DGFEM(geometry, polynomial_degree=1)
-# dg.add_data(advection=advection, dirichlet_bcs=solution, forcing=forcing)
-# dg.dgfem(solve=True)
-#
-# plot_DG(dg.solution, geometry, dg.polydegree)
+dom = CircleCircleDomain()
+poly_mesh = poly_mesher(dom, max_iterations=5, n_points=1000)
+poly_mesh = poly_mesher_cleaner(poly_mesh)
+geometry = DGFEMGeometry(poly_mesh)
+
+dg = DGFEM(geometry, polynomial_degree=1)
+dg.add_data(advection=advection, dirichlet_bcs=solution, forcing=forcing)
+dg.dgfem(solve=True)
+
+plot_DG(dg.solution, geometry, dg.polydegree)
 
 
 # Section: diuffusion testing - Square

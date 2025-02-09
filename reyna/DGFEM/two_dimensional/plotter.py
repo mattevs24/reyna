@@ -16,6 +16,7 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
     """
 
     x_min, x_max, y_min, y_max = np.inf, -np.inf, np.inf, -np.inf
+    U_min, U_max = np.inf, -np.inf
 
     fig, ax_poly = plt.subplots(subplot_kw={'projection': '3d'})
 
@@ -46,7 +47,6 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
         Lege_ind = Basis_index2D(poly_degree)
         dim_elem = Lege_ind.shape[0]
 
-        U_max = 0
         cmap = cm.get_cmap('viridis')  # You can change 'viridis' to other colormaps like 'plasma', 'inferno', etc.
         for t in range(geometry.n_elements):
             elem, BDbox = geometry.mesh.filtered_regions[t], geometry.elem_bounding_boxes[t]
@@ -61,7 +61,8 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
                 P[:, i] = tensor_leg(node, m, h, Lege_ind[i, :])
 
             u_DG_val = np.matmul(P, coef)
-            U_max = np.maximum(U_max, np.max(abs(u_DG_val)))
+            U_max = np.maximum(U_max, np.max(u_DG_val))
+            U_min = np.minimum(U_min, np.min(u_DG_val))
 
             x_min = np.minimum(x_min, np.min(node[:, 0]))
             x_max = np.maximum(x_max, np.max(node[:, 0]))
@@ -94,15 +95,14 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
             # norm = plt.Normalize(np.min(u_DG_val), np.max(u_DG_val))
             # colors = cmap(norm(u_DG_val))
 
-            poly.set_facecolor([abs(u_mean/U_max), abs(u_mean/U_max), 1-abs(u_mean/U_max)])
+            poly.set_facecolor([abs(u_mean/np.abs(U_max)), abs(u_mean/np.abs(U_max)), 1-abs(u_mean/np.abs(U_max))])
 
             poly.set_edgecolor('k')
             ax_poly.add_collection3d(poly)
 
-            ax_poly.set_zlim(None, None)  # Auto-scale the z-axis based on data
-
     ax_poly.set_xlim(x_min, x_max)
     ax_poly.set_ylim(y_min, y_max)
+    ax_poly.set_zlim(U_min, U_max)
 
     # Construct the filename
     ax_poly.set_xlabel(r'$x$')
