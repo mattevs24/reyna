@@ -69,12 +69,12 @@ class DGFEMGeometry:
 
         edges_per_elem = []
 
-        subtriangulation_0 = np.zeros((max_n, self.n_elements), dtype=np.int) - 1
-        subtriangulation_1 = np.zeros((max_n, self.n_elements), dtype=np.int) - 1
-        subtriangulation_2 = np.zeros((max_n, self.n_elements), dtype=np.int) - 1
+        subtriangulation_0 = np.zeros((max_n, self.n_elements), dtype=int) - 1
+        subtriangulation_1 = np.zeros((max_n, self.n_elements), dtype=int) - 1
+        subtriangulation_2 = np.zeros((max_n, self.n_elements), dtype=int) - 1
 
-        total_edge_x = np.zeros((max_n, self.n_elements), dtype=np.int) - 1
-        total_edge_y = np.zeros((max_n, self.n_elements), dtype=np.int) - 1
+        total_edge_x = np.zeros((max_n, self.n_elements), dtype=int) - 1
+        total_edge_y = np.zeros((max_n, self.n_elements), dtype=int) - 1
 
         tri_to_poly = []
         elem_bounding_boxes = []
@@ -206,7 +206,7 @@ class DGFEMGeometry:
 
         self.n_triangles = subtriangulation.shape[0]
 
-        total_tri_edge = np.zeros((3 * self.n_triangles, 2), dtype=np.int) - 1
+        total_tri_edge = np.zeros((3 * self.n_triangles, 2), dtype=int) - 1
 
         total_tri_edge[::3, :] = np.concatenate((np.atleast_2d(subtriangulation[:, 0]).T,
                                                  np.atleast_2d(subtriangulation[:, 1]).T), axis=1)
