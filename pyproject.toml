@@ -16,7 +16,7 @@ dependencies = [
     "numpy>=1.18.0",
     "scipy>=1.4.0",
     "shapely>=2.0.0",
-    "matplotlib>3.4.0"
+    "matplotlib>=3.4.0"
 ]
 keywords = [
     "discontinuous", "Galerkin", "finite", "element", "numerics", "methods", "numerical analysis",
@@ -37,5 +37,11 @@ classifiers = [
     "Intended Audience :: Developers"
 ]
 
+[tool.setuptools]
+packages = ["reyna"]
+
+[tool.setuptools.exclude-package-data]
+"branding" = ["*"]
+
 [tool.setuptools.package-data]
-"reyna._data.quadratures" = ["*"]  # Include .txt files in my_package/data
+"reyna._data.quadratures" = ["*"]
