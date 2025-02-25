@@ -182,7 +182,7 @@ def int_localstiff(nodes: np.ndarray,
 
     if advection is not None:
         # Correct the normal vector's direction if required.
-        correction = np.sum(advection(mid) * normal, axis=1) >= 1e-12
+        correction = np.sum(advection(mid).flatten() * normal) >= 1e-12
         b_dot_n = np.sum(advection(P_Qpoints) * normal[None, :], axis=1)
 
         if correction:

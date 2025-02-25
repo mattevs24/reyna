@@ -4,6 +4,7 @@ import time
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
+import matplotlib.pyplot as plt
 
 from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
@@ -16,7 +17,8 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly.forcing_assembly import 
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.full_assembly import localstiff, int_localstiff
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import quad_GL, quad_GJ1
 
-import reyna.DGFEM.two_dimensional._auxilliaries.polgonal_error_utils as error_utils
+from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.boundary_assembly import error_bd_face, error_cr_bd_face
+from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.full_assembly import error_element, error_interface
 
 
 class DGFEM:
@@ -41,7 +43,7 @@ class DGFEM:
         self.dirichlet_bcs = None
 
         self.boundary_information: typing.Optional[BoundaryInformation] = None
-        self.sigma_D = 5 * (self.polydegree + 1) * (self.polydegree + 2)
+        self.sigma_D = 10 * (self.polydegree + 1) * (self.polydegree + 2)
 
         # Method Parameters
 
@@ -170,26 +172,6 @@ class DGFEM:
         if solve:
             self.solution = spsolve(self.B, self.L)
 
-        # import matplotlib.pyplot as plt
-        #
-        # dists = []
-        # for point in list(self.geometry.mesh.filtered_points):
-        #     dists.append((point * [1.0, 1.0]).sum())
-        #
-        # order = np.argsort(dists)
-        # stretched_order = np.kron(self.dim_elem * order, np.ones(self.dim_elem, dtype=int)) + \
-        #     np.tile(np.arange(self.dim_elem), self.geometry.n_elements)
-        #
-        # self.B = self.B.toarray()
-        #
-        # for i in range(self.B.shape[1]):
-        #     self.B[:, i] = self.B[stretched_order, i]
-        # for i in range(self.B.shape[1]):
-        #     self.B[i, :] = self.B[i, stretched_order]
-        #
-        # plt.imshow(self.B != 0.0)
-        # plt.show()
-
     def _intialise_quadrature(self):
 
         quadrature_order = int(np.ceil(0.5 * (self.fekete_integration_degree + 1)))
@@ -222,6 +204,7 @@ class DGFEM:
 
         boundary_information = BoundaryInformation(**kwargs)
         boundary_information.split_boundaries(self.geometry, self.advection, self.diffusion)
+        # boundary_information.plot_boundaries(self.geometry)
 
         return boundary_information
 
@@ -286,17 +269,17 @@ class DGFEM:
                 self.geometry.elem_bounding_boxes[elem_oneface[0]],
                 self.geometry.elem_bounding_boxes[elem_oneface[1]],
                 self.geometry.nodes[
-                    self.geometry.subtriangulation[self.geometry.interior_edges_to_element_triangle[t, 0], :], :
+                    self.geometry.subtriangulation[self.geometry.interior_edges_to_triangle[t, 0], :], :
                 ],
                 self.geometry.nodes[
-                    self.geometry.subtriangulation[self.geometry.interior_edges_to_element_triangle[t, 1], :], :
+                    self.geometry.subtriangulation[self.geometry.interior_edges_to_triangle[t, 1], :], :
                 ],
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
                 self.sigma_D,
                 self.geometry.interior_normals[t, :],
                 self.diffusion,
-                self.advection,
+                self.advection
             )
 
             ind1 = np.arange(elem_oneface[0] * self.dim_elem, (elem_oneface[0] + 1) * self.dim_elem)
@@ -327,9 +310,9 @@ class DGFEM:
             j[:, element_idx] = self.dim_elem * element_idx + ind_y
 
         for v in list(self.boundary_information.elliptical_dirichlet_indecies):
-            Dirielem_bdface = self.geometry.boundary_edges_to_element_triangle[v]
+            Dirielem_bdface = self.geometry.boundary_edges_to_triangle[v]
             local_triangle = self.geometry.subtriangulation[Dirielem_bdface, :]
-            element_idx = self.geometry.triangle_to_polygon[Dirielem_bdface]
+            element_idx = self.geometry.boundary_edges_to_element[v]
 
             local_bc_diff = localstiff_diffusion_bcs(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
@@ -356,7 +339,7 @@ class DGFEM:
 
         for v in list(self.boundary_information.elliptical_dirichlet_indecies):
 
-            Dirielem_bdface = self.geometry.boundary_edges_to_element_triangle[v]
+            Dirielem_bdface = self.geometry.boundary_edges_to_triangle[v]
             local_triangle = self.geometry.subtriangulation[Dirielem_bdface, :]
             element_idx = self.geometry.boundary_edges_to_element[v]
 
@@ -394,8 +377,7 @@ class DGFEM:
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')
 
         for t, v in enumerate(list(self.boundary_information.inflow_indecies)):
-            Dirielem_bdface = self.geometry.boundary_edges_to_element_triangle[v]
-            element_idx = self.geometry.triangle_to_polygon[Dirielem_bdface]
+            element_idx = self.geometry.boundary_edges_to_element[v]
 
             local_bc_adv = localinflowface(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
@@ -445,25 +427,27 @@ class DGFEM:
         return forcing_inflow_bcs_vector
 
     def errors(self,
-               exact_solution: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]],
+               exact_solution: typing.Callable[[np.ndarray], np.ndarray],
                grad_exact_solution: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
                div_advection: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None
-               ) -> (float, float, float):
+               ) -> typing.Tuple[float, float, typing.Optional[float]]:
+
         """
-        This function calculates three (semi-) norms associated with the discontinuous Galerkin scheme employed here.
-        First the DG norm (the sum of the convective and diffusive norms) as well as the L2 norm and the H1 seminorm.
+        This function calculates three (semi-) norms associated with the discontinuous Galerkin scheme employed
+        here. First the L2 norm as well as the DG norm (the sum of the convective and diffusive norms) and the H1
+        semi-norm.
 
         Args:
             exact_solution: The exact solution. Must take in an array of size (N,2) and return an array which
             outputs values in a (N,) array.
-            grad_exact_solution: The gradient of the exact solution. Must take in an array of size (N,2) and return an
-            array which outputs values in a (N,2) array.
-            div_advection: The divergence of the advection coeffiecient. This is required for the DG norm. This has to
-            take in an array of size (N,2) and return an array which outputs values in a (N,) array.
+            grad_exact_solution: The gradient of the exact solution. Must take in an array of size (N,2) and
+            return an array which outputs values in a (N,2) array.
+            div_advection: The divergence of the advection coeffiecient. This is required for the DG norm.
+            This has to take in an array of size (N,2) and return an array which outputs values in a (N,) array.
 
         Returns:
-            (float, float, float): The DG norm, the L2 norm and the H1 semi-norm respectively.
-        """
+            (float, float, typing.Optional[float]): The L2 norm, the DG norm and the H1 semi-norm respectively.
+         """
 
         if self.solution is None:
             raise ValueError('Need to run the .dgfem() method to generate a solution before calculating an error.')
@@ -475,133 +459,101 @@ class DGFEM:
 
         self.auxilliary_function = lambda x: self.reaction(x) - 0.5 * div_advection(x)
 
-        H1_err: float = 0.0
-        D_DG_1: float = 0.0
-        D_DG_2: float = 0.0
-        D_DG_3: float = 0.0
+        l2_error, dg_error, h1_error = 0.0, 0.0, 0.0
+
+        for t in range(self.geometry.n_triangles):
+            local_triangle = self.geometry.subtriangulation[t, :]
+            element_idx = self.geometry.triangle_to_polygon[t]
+
+            l2_subnorm, dg_subnorm, h1_subnorm = error_element(
+                self.geometry.nodes[local_triangle, :],
+                self.geometry.elem_bounding_boxes[element_idx],
+                self.element_reference_quadrature,
+                self.polynomial_indecies,
+                self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
+                exact_solution,
+                self.diffusion,
+                grad_exact_solution,
+                self.auxilliary_function
+            )
+
+            l2_error += l2_subnorm
+            dg_error += dg_subnorm
+
+            if self.diffusion is not None:
+                h1_error += h1_subnorm
+
+        for t in range(self.geometry.interior_edges.shape[0]):
+            elem_oneface = self.geometry.interior_edges_to_element[t, :]
+
+            dg_subnorm = error_interface(
+                self.geometry.nodes[self.geometry.interior_edges[t, :], :],
+                self.geometry.elem_bounding_boxes[elem_oneface[0]],
+                self.geometry.elem_bounding_boxes[elem_oneface[1]],
+                self.geometry.nodes[
+                    self.geometry.subtriangulation[self.geometry.interior_edges_to_triangle[t, 0], :], :
+                ],
+                self.geometry.nodes[
+                    self.geometry.subtriangulation[self.geometry.interior_edges_to_triangle[t, 1], :], :
+                ],
+                self.edge_reference_quadrature,
+                self.polynomial_indecies,
+                self.sigma_D,
+                self.geometry.interior_normals[t, :],
+                self.solution[elem_oneface[0] * self.dim_elem:(elem_oneface[0] + 1) * self.dim_elem],
+                self.solution[elem_oneface[1] * self.dim_elem:(elem_oneface[1] + 1) * self.dim_elem],
+                self.diffusion,
+                self.advection
+            )
+
+            dg_error += dg_subnorm
 
         if self.diffusion is not None:
 
-            for t in range(self.geometry.n_triangles):
+            for v in list(self.boundary_information.elliptical_dirichlet_indecies):
+                Dirielem_bdface = self.geometry.boundary_edges_to_triangle[v]
+                local_triangle = self.geometry.subtriangulation[Dirielem_bdface, :]
+                element_idx = self.geometry.triangle_to_polygon[Dirielem_bdface]
 
-                local_triangle = self.geometry.subtriangulation[t, :]
-                element_idx = self.geometry.triangle_to_polygon[t]
-
-                dg_subnorm, h1_subnorm = error_utils.a_grad_norm(
+                dg_subnorm = error_bd_face(
+                    self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                     self.geometry.nodes[local_triangle, :],
                     self.geometry.elem_bounding_boxes[element_idx],
                     self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
-                    self.fekete_integration_degree,
-                    self.polynomial_indecies,
-                    grad_exact_solution,
-                    self.diffusion
-                )
-
-                H1_err += h1_subnorm
-                D_DG_1 += dg_subnorm
-
-            for t in range(self.geometry.interior_edges.shape[0]):
-
-                elem_oneface = self.geometry.interior_edges_to_element[t]
-                # Swapped element for subtriangulation
-                vertice = np.vstack((self.geometry.nodes[self.geometry.subtriangulation[elem_oneface[0]], :],
-                                     self.geometry.nodes[self.geometry.subtriangulation[elem_oneface[1]], :]))
-
-                Part_2 = error_utils.err_interface(
-                    self.geometry.nodes[self.geometry.interior_edges[t, :]],
-                    vertice,
-                    self.geometry.elem_bounding_boxes[elem_oneface[0]],
-                    self.geometry.elem_bounding_boxes[elem_oneface[1]],
-                    self.solution[elem_oneface[0] * self.dim_elem:(elem_oneface[0] + 1) * self.dim_elem],
-                    self.solution[elem_oneface[1] * self.dim_elem:(elem_oneface[1] + 1) * self.dim_elem],
-                    self.geometry.interior_normals[t, :],
-                    self.fekete_integration_degree,
-                    self.polynomial_indecies,
-                    self.diffusion,
-                    self.sigma_D)
-
-                D_DG_2 += Part_2
-
-            for t in range(self.geometry.boundary_edges.shape[0]):
-                elem_bdface = self.geometry.boundary_edges_to_element[t]
-
-                # Swapped element for subtriangulation in vertices again
-                Part_3 = error_utils.err_bd_face(
-                    self.geometry.nodes[self.geometry.boundary_edges[t, :], :],
-                    self.geometry.nodes[self.geometry.subtriangulation[elem_bdface, :], :],
-                    self.geometry.elem_bounding_boxes[elem_bdface],
-                    self.solution[elem_bdface * self.dim_elem:(elem_bdface + 1) * self.dim_elem],
-                    self.geometry.boundary_normals[t, :],
-                    self.fekete_integration_degree,
+                    self.geometry.boundary_normals[v, :],
+                    self.edge_reference_quadrature,
                     self.polynomial_indecies,
                     exact_solution,
                     self.diffusion,
                     self.sigma_D
                 )
 
-                D_DG_3 += Part_3
-
-        L2_err: float = 0.0
-        CR_DG_1: float = 0.0
-        CR_DG_2: float = 0.0
-        CR_DG_3: float = 0.0
-
-        for t in range(self.geometry.n_triangles):
-            local_triangle = self.geometry.subtriangulation[t, :]
-            element_idx = self.geometry.triangle_to_polygon[t]
-
-            dg_subnorm, l2_subnorm = error_utils.cr_err_elem(
-                self.geometry.nodes[local_triangle, :],
-                self.geometry.elem_bounding_boxes[element_idx],
-                self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
-                self.fekete_integration_degree,
-                self.polynomial_indecies,
-                exact_solution,
-                self.auxilliary_function
-            )
-
-            L2_err += l2_subnorm
-            CR_DG_1 += dg_subnorm
+                dg_error += dg_subnorm
 
         if self.advection is not None:
-
-            for t in range(self.geometry.interior_edges.shape[0]):
-                elem_oneface = self.geometry.interior_edges_to_element[t, :]
-
-                Part_2 = error_utils.cr_err_interface(
-                    self.geometry.nodes[self.geometry.interior_edges[t, :], :],
-                    self.geometry.elem_bounding_boxes[elem_oneface[0]],
-                    self.geometry.elem_bounding_boxes[elem_oneface[1]],
-                    self.solution[elem_oneface[0] * self.dim_elem:(elem_oneface[0] + 1) * self.dim_elem],
-                    self.solution[elem_oneface[1] * self.dim_elem:(elem_oneface[1] + 1) * self.dim_elem],
-                    self.geometry.interior_normals[t, :],
-                    self.fekete_integration_degree,
-                    self.polynomial_indecies,
-                    self.advection
-                )
-
-                CR_DG_2 += Part_2
+            # error_cr_bd_face
 
             for t in range(self.geometry.boundary_edges.shape[0]):
-
                 elem_bdface = self.geometry.boundary_edges_to_element[t]
 
-                Part_3 = error_utils.cr_err_bd_face(
+                dg_subnorm = error_cr_bd_face(
                     self.geometry.nodes[self.geometry.boundary_edges[t, :], :],
                     self.geometry.elem_bounding_boxes[elem_bdface],
                     self.solution[elem_bdface * self.dim_elem:(elem_bdface + 1) * self.dim_elem],
                     self.geometry.boundary_normals[t, :],
-                    self.fekete_integration_degree,
+                    self.edge_reference_quadrature,
                     self.polynomial_indecies,
                     exact_solution,
                     self.advection
                 )
 
-                CR_DG_3 += Part_3
+                dg_error += dg_subnorm
 
-        L2_err = np.sqrt(L2_err)
-        H1_err = np.sqrt(H1_err)
+        l2_error = np.sqrt(l2_error)
+        h1_error = np.sqrt(h1_error)
+        dg_error = np.sqrt(dg_error)
 
-        DG_err = np.sqrt(D_DG_1 + D_DG_2 + D_DG_3 + CR_DG_1 + CR_DG_2 + CR_DG_3)
+        if self.diffusion is None:
+            return l2_error, dg_error, None
 
-        return DG_err, L2_err, H1_err
+        return l2_error, dg_error, h1_error

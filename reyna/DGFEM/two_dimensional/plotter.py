@@ -53,14 +53,16 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
             node = geometry.nodes[elem, :]
 
             # Calculating nodal values
-            coef = numerical_solution[t*dim_elem:(t+1)*dim_elem]
+            coef = numerical_solution[t * dim_elem: (t + 1) * dim_elem]
             h = 0.5 * np.array([BDbox[1] - BDbox[0], BDbox[3] - BDbox[2]])
             m = 0.5 * np.array([BDbox[1] + BDbox[0], BDbox[3] + BDbox[2]])
-            P = np.zeros((node.shape[0], dim_elem))
-            for i in range(dim_elem):
-                P[:, i] = tensor_leg(node, m, h, Lege_ind[i, :])
 
-            u_DG_val = np.matmul(P, coef)
+            tensor_leg_array = np.array([
+                tensor_leg(node, m, h, Lege_ind[i, :]) for i in range(dim_elem)
+            ])
+
+            u_DG_val = tensor_leg_array.T @ coef
+
             U_max = np.maximum(U_max, np.max(u_DG_val))
             U_min = np.minimum(U_min, np.min(u_DG_val))
 
@@ -74,28 +76,28 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
             node = geometry.nodes[elem, :]
 
             # Calculating nodal values
-            coef = numerical_solution[t*dim_elem:(t+1)*dim_elem]
+            coef = numerical_solution[t * dim_elem: (t + 1) * dim_elem]
             h = 0.5 * np.array([BDbox[1] - BDbox[0], BDbox[3] - BDbox[2]])
             m = 0.5 * np.array([BDbox[1] + BDbox[0], BDbox[3] + BDbox[2]])
 
-            P = np.zeros((node.shape[0], dim_elem))
-            for i in range(dim_elem):
-                P[:, i] = tensor_leg(node, m, h, Lege_ind[i, :])
+            tensor_leg_array = np.array([
+                tensor_leg(node, m, h, Lege_ind[i, :]) for i in range(dim_elem)
+            ])
 
-            u_DG_val = np.matmul(P, coef)
+            u_DG_val = tensor_leg_array.T @ coef
 
             # create plot
             vtx = np.hstack((node, u_DG_val[:, np.newaxis]))
             poly = a3.art3d.Poly3DCollection([np.array(vtx)])
+
             u_mean = np.mean(u_DG_val)
+            scaling = max(np.abs(U_max), np.abs(U_min))
 
-            # u_DG_val = np.where(u_DG_val < 0, 0, u_DG_val)
-
-            # Normalize u_DG_val for colormap
-            # norm = plt.Normalize(np.min(u_DG_val), np.max(u_DG_val))
-            # colors = cmap(norm(u_DG_val))
-
-            poly.set_facecolor([abs(u_mean/np.abs(U_max)), abs(u_mean/np.abs(U_max)), 1-abs(u_mean/np.abs(U_max))])
+            poly.set_facecolor([
+                abs(u_mean / scaling),
+                abs(u_mean / scaling),
+                1.0 - abs(u_mean / scaling)
+            ])
 
             poly.set_edgecolor('k')
             ax_poly.add_collection3d(poly)

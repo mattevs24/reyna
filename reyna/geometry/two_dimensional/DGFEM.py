@@ -44,11 +44,8 @@ class DGFEMGeometry:
 
         self.subtriangulation = None
         self.triangle_to_polygon = None
-        self.node_to_triangle_element = None
-        self.interior_edge_triangle = None
-        self.boundary_edge_triangle = None
-        self.interior_edges_to_element_triangle = None
-        self.boundary_edges_to_element_triangle = None
+        self.interior_edges_to_triangle = None
+        self.boundary_edges_to_triangle = None
 
         self.h: typing.Optional[float] = None
 
@@ -188,16 +185,15 @@ class DGFEMGeometry:
         bd_outward = self.nodes[self.boundary_edges[:, 0], :] - \
             self.mesh.filtered_points[self.boundary_edges_to_element.flatten(order="F"), :]
 
-        int_outward = self.nodes[self.interior_edges[:, 0], :] - \
+        int_outward = self.mesh.filtered_points[self.interior_edges_to_element[:, 1], :] - \
             self.mesh.filtered_points[self.interior_edges_to_element[:, 0], :]
 
         bd_index = np.maximum(np.sum(bd_nor_vec * bd_outward, axis=1), 0)
-        int_index = np.maximum(np.sum(int_nor_vec * int_outward, axis=1), 0)
+        int_index = np.sum(int_nor_vec * int_outward, axis=1) < 0.0
 
         i = np.argwhere(bd_index == 0)
-        m = np.argwhere(int_index == 0)
         bd_nor_vec[i, :] = -bd_nor_vec[i, :]
-        int_nor_vec[m, :] = -int_nor_vec[m, :]
+        int_nor_vec[int_index, :] = -int_nor_vec[int_index, :]
 
         self.boundary_normals = bd_nor_vec
         self.interior_normals = int_nor_vec
@@ -206,35 +202,35 @@ class DGFEMGeometry:
 
         self.n_triangles = subtriangulation.shape[0]
 
-        total_tri_edge = np.zeros((3 * self.n_triangles, 2), dtype=int) - 1
-
-        total_tri_edge[::3, :] = np.concatenate((np.atleast_2d(subtriangulation[:, 0]).T,
-                                                 np.atleast_2d(subtriangulation[:, 1]).T), axis=1)
-        total_tri_edge[1::3, :] = np.concatenate((np.atleast_2d(subtriangulation[:, 1]).T,
-                                                  np.atleast_2d(subtriangulation[:, 2]).T), axis=1)
-        total_tri_edge[2::3, :] = np.concatenate((np.atleast_2d(subtriangulation[:, 2]).T,
-                                                  np.atleast_2d(subtriangulation[:, 0]).T), axis=1)
-
-        node_to_elem_tri = {i: np.where((subtriangulation == i).any(axis=1))[0] for i in range(self.nodes.shape[0])}
-
-        self.node_to_triangle_element = node_to_elem_tri
-
-        total_tri_edge = np.sort(total_tri_edge, axis=1)
-
-        sparse_mat = csr_matrix((np.tile([1], total_tri_edge.shape[0]), (total_tri_edge[:, 1], total_tri_edge[:, 0])))
-        i, j, s = find(sparse_mat)
-        bd_edge_tri = np.concatenate((j[s == 1, np.newaxis], i[s == 1, np.newaxis]), axis=1)
-        int_edge_tri = np.concatenate((j[s == 2, np.newaxis], i[s == 2, np.newaxis]), axis=1)
-
-        self.boundary_edge_triangle = bd_edge_tri
-        self.interior_edge_triangle = int_edge_tri
+        # total_tri_edge = np.zeros((3 * self.n_triangles, 2), dtype=int) - 1
+        #
+        # total_tri_edge[::3, :] = np.concatenate((np.atleast_2d(subtriangulation[:, 0]).T,
+        #                                          np.atleast_2d(subtriangulation[:, 1]).T), axis=1)
+        # total_tri_edge[1::3, :] = np.concatenate((np.atleast_2d(subtriangulation[:, 1]).T,
+        #                                           np.atleast_2d(subtriangulation[:, 2]).T), axis=1)
+        # total_tri_edge[2::3, :] = np.concatenate((np.atleast_2d(subtriangulation[:, 2]).T,
+        #                                           np.atleast_2d(subtriangulation[:, 0]).T), axis=1)
+        #
+        # node_to_elem_tri = {i: np.where((subtriangulation == i).any(axis=1))[0] for i in range(self.nodes.shape[0])}
+        #
+        # self.node_to_triangle_element = node_to_elem_tri
+        #
+        # total_tri_edge = np.sort(total_tri_edge, axis=1)
+        #
+        # sparse_mat = csr_matrix((np.tile([1], total_tri_edge.shape[0]), (total_tri_edge[:, 1], total_tri_edge[:, 0])))
+        # i, j, s = find(sparse_mat)
+        # bd_edge_tri = np.concatenate((j[s == 1, np.newaxis], i[s == 1, np.newaxis]), axis=1)
+        # int_edge_tri = np.concatenate((j[s == 2, np.newaxis], i[s == 2, np.newaxis]), axis=1)
+        #
+        # self.boundary_edge_triangle = bd_edge_tri
+        # self.interior_edge_triangle = int_edge_tri
 
         edge_to_triangles = {}
 
-        for idx, subtriangle in enumerate(self.subtriangulation):
+        for idx, triangle in enumerate(self.subtriangulation):
             edges = [
                 (min(a, b), max(a, b))
-                for i, a in enumerate(subtriangle) for b in subtriangle[i + 1:]
+                for i, a in enumerate(triangle) for b in triangle[i + 1:]
             ]
 
             for edge in edges:
@@ -244,29 +240,34 @@ class DGFEMGeometry:
                     edge_to_triangles[edge] = [idx]
 
         temp_int = []
-        for i in range(self.interior_edge_triangle.shape[0]):
-            edge = (min(self.interior_edge_triangle[i, 0], self.interior_edge_triangle[i, 1]),
-                    max(self.interior_edge_triangle[i, 0], self.interior_edge_triangle[i, 1]))
+        # for i in range(self.interior_edge_triangle.shape[0]):
+        #     edge = (min(self.interior_edge_triangle[i, 0], self.interior_edge_triangle[i, 1]),
+        #             max(self.interior_edge_triangle[i, 0], self.interior_edge_triangle[i, 1]))
+        #
+        #     matched_triangles = edge_to_triangles.get(edge)
+        #
+        #     if len(matched_triangles) == 2:
+        #         temp_int.append(sorted(matched_triangles))
+        #     else:
+        #         temp_int.append(sorted(matched_triangles + [-1] * (2 - len(matched_triangles))))
 
-            matched_triangles = edge_to_triangles.get(edge)
+        for edge in list(self.interior_edges):
+            temp_int.append(sorted(edge_to_triangles.get(tuple(edge))))
 
-            if len(matched_triangles) == 2:
-                temp_int.append(sorted(matched_triangles))
-            else:
-                temp_int.append(sorted(matched_triangles + [-1] * (2 - len(matched_triangles))))
-
-        self.interior_edges_to_element_triangle = np.array(temp_int)
+        self.interior_edges_to_triangle = np.array(temp_int)
 
         temp_bound = []
-        for i in range(self.boundary_edge_triangle.shape[0]):
-            edge = (min(self.boundary_edge_triangle[i, 0], self.boundary_edge_triangle[i, 1]),
-                    max(self.boundary_edge_triangle[i, 0], self.boundary_edge_triangle[i, 1]))
+        # for i in range(self.boundary_edge_triangle.shape[0]):
+        #     edge = (min(self.boundary_edge_triangle[i, 0], self.boundary_edge_triangle[i, 1]),
+        #             max(self.boundary_edge_triangle[i, 0], self.boundary_edge_triangle[i, 1]))
+        #
+        #     matched_triangles = edge_to_triangles.get(edge)
+        #
+        #     temp_bound.append(matched_triangles[0])
+        for edge in self.boundary_edges:
+            temp_bound.append(*edge_to_triangles.get(tuple(edge)))
 
-            matched_triangles = edge_to_triangles.get(edge)
-
-            temp_bound.append(matched_triangles[0])
-
-        self.boundary_edges_to_element_triangle = np.array(temp_bound)
+        self.boundary_edges_to_triangle = np.array(temp_bound)
 
     def save_geometry(self, filepath: str, save_mesh: bool = False):
         with open(filepath, "wb") as file:

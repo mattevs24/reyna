@@ -1,7 +1,7 @@
 import numpy as np
 
-from reyna.polymesher.two_dimensional.domains import RectangleDomain, CircleDomain, CircleCircleDomain, LShapeDomain
-from reyna.polymesher.two_dimensional.main import poly_mesher, poly_mesher_cleaner
+from reyna.polymesher.two_dimensional.domains import RectangleDomain, HornDomain, CircleCircleDomain, LShapeDomain
+from reyna.polymesher.two_dimensional.main import poly_mesher
 
 from main import DGFEM
 from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
@@ -118,9 +118,8 @@ def grad_u_exact(x: np.ndarray):
 
 # Section: diuffusion-advection-reaction testing
 
-dom = RectangleDomain(np.array([[0, 1], [0, 1]]))
+dom = HornDomain()
 poly_mesh = poly_mesher(dom, max_iterations=10, n_points=1024)
-poly_mesh = poly_mesher_cleaner(poly_mesh)
 geometry = DGFEMGeometry(poly_mesh)
 
 diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)

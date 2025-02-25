@@ -1,3 +1,17 @@
+"""
+This is the mesh algorithm used for the polygonal meshing. Credits for the orginal code goes to Talischi et al. [1]
+written in Matlab. Several modifications are in place here for efficiency as well as functionality. For example, the
+cleaning function in the original code has several bugs including a tendency to collapse boundary edges. In terms of
+more recent work (see Calloo et al. [2]), we require Voronoi tessellations, a property of which is not retained by the
+cleaning functions. There is the potential for small edges but either more or less iterations fixes this.
+
+[1] Talischi, C., Paulino, G. H., Pereira, A., & Menezes, I. F. PolyMesher: a general-purpose mesh generator for
+polygonal elements written in Matlab. Structural and Multidisciplinary Optimization. (2012)
+
+[2] Calloo, A., Evans, M., Lockyer, H., Madiot, F., Pryer, T., & Zanetti, L. Cycle-Free Polytopal Mesh Sweeping for
+Boltzmann Transport. arXiv preprint arXiv:2412.01660. (2024)
+"""
+
 import itertools
 
 import numpy as np
@@ -52,21 +66,18 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
 
     iteration, error, tolerance = 0, 1.0, 1e-4
     bounding_box = domain.bounding_box
-    area = (bounding_box[0, 1] - bounding_box[0, 0]) * (bounding_box[1, 1] - bounding_box[1, 0])
-    n_points = points.shape[0]
 
-    voronoi, nodes, elements = None, None, None
+    # TODO: maybe this should be domain.area?
+    area = (bounding_box[0, 1] - bounding_box[0, 0]) * (bounding_box[1, 1] - bounding_box[1, 0])
 
     while iteration <= max_iterations and error > tolerance:
         reflected_points = _poly_mesher_reflect(points, domain, area)
 
         voronoi = Voronoi(np.concatenate((points, reflected_points), axis=0), qhull_options='Qbb Qz')
-        cond_len = len(voronoi.regions[0]) == 0
 
-        nodes = voronoi.vertices
-        if cond_len:
+        if len(voronoi.regions[0]) == 0:
             sorting = [np.where(voronoi.point_region == x)[0][0] for x in range(1, len(voronoi.regions))]
-            elements = [x for _, x in sorted(zip(sorting, voronoi.regions[1:]))]
+            elements = [np.array(x) for _, x in sorted(zip(sorting, voronoi.regions[1:]))]
         else:
             empty_ind = voronoi.regions.index([])
             sorting_1 = [np.where(voronoi.point_region == x)[0][0] for x in range(0, empty_ind)]
@@ -74,9 +85,14 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
             sorting = sorting_1 + sorting_2
             regions = voronoi.regions
             del regions[empty_ind]
-            elements = [x for _, x in sorted(zip(sorting, regions))]
+            elements = [np.array(x) for _, x in sorted(zip(sorting, regions))]
 
-        points, area, error = _poly_mesher_vorocentroid(points, nodes, elements)
+        if iteration > max_iterations - 1 or error <= 2.0 * tolerance:
+            vertices, regions = _poly_mesher_extract_nodes(voronoi.vertices, elements[: points.shape[0]])
+
+            return PolyMesh(vertices, regions, points, voronoi.ridge_points, domain)
+
+        points, area, error = _poly_mesher_vorocentroid(points, voronoi.vertices, elements)
 
         if fixed_points is not None:
             points[:n_fixed, :] = fixed_points
@@ -85,28 +101,6 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
 
         if iteration % 10 == 0 and verbose:
             print(f"Iteration: {iteration}. Error: {error}")
-
-    return PolyMesh(voronoi.vertices, elements[: n_points], points, voronoi.ridge_points, domain)
-
-
-def poly_mesher_cleaner(poly_mesh: PolyMesh, tolerence: float = 0.1) -> PolyMesh:
-    """
-    This function is may be applied to a PolyMesh object to refine the outputs in any given manner. This collapses
-    particularly small edges (which may cause errors in the following numerical methods) and extracts unnessary data and
-    duplicates from the poly_mesher algorithm.
-
-    Args:
-        poly_mesh (PolyMesh): A PolyMesh object to be refined.
-        tolerence (float): The tolerence to which the small edges are collapsed. This is a multiplier not a distance.
-
-    Returns:
-        (PolyMesh): Another PolyMesh object but (hopefully) more refined and manageable.
-    """
-
-    vertices, regions = _poly_mesher_extract_nodes(poly_mesh.vertices, poly_mesh.filtered_regions)
-    vertices, regions = _poly_mesher_collapse_small_edges(vertices, regions, tolerence)
-
-    return PolyMesh(vertices, regions, poly_mesh.filtered_points, poly_mesh.ridge_points, poly_mesh.domain)
 
 
 def _poly_mesher_init_point_set(domain: Domain, **kwargs) -> np.ndarray:
@@ -218,41 +212,6 @@ def _poly_mesher_extract_nodes(nodes: np.ndarray, filtered_elements: list) -> (n
     c_nodes = np.arange(nodes.shape[0])
     c_nodes[list(set(c_nodes).difference(set(unique_)))] = max(unique_)
     nodes, elements = _poly_mesher_rebuild_lists(nodes, filtered_elements, c_nodes)
-
-    return nodes, elements
-
-
-def _poly_mesher_collapse_small_edges(nodes: np.ndarray, elements: list, tolerance: float) -> (np.ndarray, list):
-
-    while True:
-
-        c_edge = np.array([[]])
-        for element in elements:
-            n_v = len(element)
-
-            if n_v <= 3:
-                continue  # this is the case when the element is a triangle -- can't collapse
-
-            v_ = nodes[element]
-            beta = np.arctan2(v_[:, 1] - np.sum(v_[:, 1])/n_v, v_[:, 0] - np.sum(v_[:, 0])/n_v)
-            beta = np.mod(np.roll(beta, -1) - beta, 2 * np.pi)
-            beta_ideal = 2 * np.pi / n_v
-            edges = np.concatenate((np.array(element)[:, np.newaxis], np.roll(element, -1)[:, np.newaxis]), axis=1)
-            idx = beta < tolerance * beta_ideal
-            if (e_ := edges[idx, :]).size != 0:
-                if c_edge.size == 0:
-                    c_edge = np.atleast_2d(e_)
-                else:
-                    c_edge = np.concatenate((c_edge, np.atleast_2d(e_)), axis=0)
-
-        if c_edge.size == 0:
-            break
-
-        c_edge = np.unique(np.sort(c_edge), axis=0)
-        c_nodes = np.arange(nodes.shape[0])
-        c_nodes[c_edge[:, 1]] = c_nodes[c_edge[:, 0]]
-
-        nodes, elements = _poly_mesher_rebuild_lists(nodes, elements, c_nodes)
 
     return nodes, elements
 
