@@ -14,15 +14,16 @@ def error_element(nodes: np.ndarray,
                   u_exact: typing.Callable[[np.ndarray], np.ndarray],
                   diffusion: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
                   grad_u_exact: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
-                  auxilliary_function: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None):
+                  auxiliiary_function: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None):
 
     if (diffusion is None) != (grad_u_exact is None):
         raise ValueError('Need to input both or neither "diffusion" and "grad_u_exact".')
 
-    if auxilliary_function is None:
-        auxilliary_function = lambda x: 0.0
+    if auxiliiary_function is None:
+        auxiliiary_function = lambda x: 0.0
 
     weights, ref_points = element_quadrature_rule
+    # Jacobian calculation
     B = 0.5 * np.vstack((nodes[1, :] - nodes[0, :], nodes[2, :] - nodes[0, :]))
     De_tri = np.abs(np.linalg.det(B))
 
@@ -35,7 +36,7 @@ def error_element(nodes: np.ndarray,
     m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
 
     u_val = u_exact(P_Qpoints)
-    c0_val = auxilliary_function(P_Qpoints)
+    c0_val = auxiliiary_function(P_Qpoints)
 
     dim_elem = Lege_ind.shape[0]
 
@@ -88,10 +89,9 @@ def error_element(nodes: np.ndarray,
 
 def error_interface(nodes: np.ndarray,
                     BDbox1: np.ndarray, BDbox2: np.ndarray,
+                    vertice1: np.ndarray, vertice2: np.ndarray,
                     edge_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
                     Lege_ind: np.ndarray,
-                    element_nodes_1: np.ndarray, element_nodes_2: np.ndarray,
-                    k_1_area: float, k_2_area: float, polydegree: float,
                     sigma_D: float,
                     normal: np.ndarray,
                     dg_coefs1: np.ndarray, dg_coefs2: np.ndarray,
@@ -132,15 +132,16 @@ def error_interface(nodes: np.ndarray,
     dg_subnorm: float = 0.0
 
     if diffusion is not None:
-        lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
 
-        abs_k_b_1 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_1 - nodes[0, :]))))
-        abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))
+        lambda_dot_ = normal @ diffusion(mid[None, :]).squeeze() @ normal
 
-        c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)
-        c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
+        to_be_summed_ = (vertice1 - nodes[0, None, :]) * normal[None, :]
+        measure_B_1_ = np.max(np.fabs(to_be_summed_.sum(axis=1)))
 
-        sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
+        to_be_summed_ = (vertice2 - nodes[0, None, :]) * normal[None, :]
+        measure_B_2_ = np.max(np.fabs(to_be_summed_.sum(axis=1)))
+
+        sigma = 2.0 * sigma_D * lambda_dot_ / min(measure_B_1_, measure_B_2_)
 
         t = (u_DG_val1 - u_DG_val2) ** 2
         dg_subnorm += sigma * np.dot(t, weights)[0]

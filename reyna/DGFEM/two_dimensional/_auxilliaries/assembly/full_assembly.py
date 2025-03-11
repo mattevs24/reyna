@@ -81,10 +81,9 @@ def localstiff(nodes: np.ndarray,
 
 def int_localstiff(nodes: np.ndarray,
                    BDbox1: np.ndarray, BDbox2: np.ndarray,
+                   vertice1: np.ndarray, vertice2: np.ndarray,
                    edge_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
                    Lege_ind: np.ndarray,
-                   element_nodes_1: np.ndarray, element_nodes_2: np.ndarray,
-                   k_1_area: float, k_2_area: float, polydegree: float,
                    sigma_D: float,
                    normal: np.ndarray,
                    diffusion: typing.Callable[[np.ndarray], np.ndarray],
@@ -120,15 +119,15 @@ def int_localstiff(nodes: np.ndarray,
 
     if diffusion is not None:
         # penalty term
-        lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
+        lambda_dot_ = normal @ diffusion(mid[None, :]).squeeze() @ normal
 
-        abs_k_b_1 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_1 - nodes[0, :]))))
-        abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))
+        to_be_summed_ = (vertice1 - nodes[0, None, :]) * normal[None, :]
+        measure_B_1_ = np.max(np.fabs(to_be_summed_.sum(axis=1)))
 
-        c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)
-        c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
+        to_be_summed_ = (vertice2 - nodes[0, None, :]) * normal[None, :]
+        measure_B_2_ = np.max(np.fabs(to_be_summed_.sum(axis=1)))
 
-        sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
+        sigma = 2.0 * sigma_D * lambda_dot_ / min(measure_B_1_, measure_B_2_)
 
         auxiliary_sigma_1 = np.zeros((dim_elem, dim_elem))
         auxiliary_sigma_2 = np.zeros((dim_elem, dim_elem))
