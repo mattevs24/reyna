@@ -48,7 +48,6 @@ class DGFEM:
         # Method Parameters
 
         self.fekete_integration_degree: int = 2 * polynomial_degree + 1
-
         self.polynomial_indecies = None
 
         self.dim_elem: typing.Optional[int] = None
@@ -56,25 +55,7 @@ class DGFEM:
 
         self.solution: typing.Optional[np.ndarray] = None
 
-        # Stiffness Matrices
-
-        self.diffusion_matrix: typing.Optional[csr_matrix] = None
-        self.diffusion_bcs_matrix: typing.Optional[csr_matrix] = None
-        self.diffusion_elliptic_stabilisation: typing.Optional[csr_matrix] = None
-
-        self.advection_matrix: typing.Optional[csr_matrix] = None
-        self.advection_interior_upwinding: typing.Optional[csr_matrix] = None
-        self.advection_inflow_boundary: typing.Optional[csr_matrix] = None
-
-        self.reaction_matrix: typing.Optional[csr_matrix] = None
-
-        # Stiffness Vectors
-
-        self.forcing_vector: typing.Optional[np.ndarray] = None
-        self.forcing_diff_bcs_vector: typing.Optional[np.ndarray] = None
-        self.forcing_adv_bcs_vector: typing.Optional[np.ndarray] = None
-
-        # Combined
+        # Stiffness matrix + Data vector
 
         self.B: typing.Optional[csr_matrix] = None
         self.L: typing.Optional[np.ndarray] = None
@@ -83,11 +64,6 @@ class DGFEM:
 
         self.element_reference_quadrature: typing.Optional[typing.Tuple[np.ndarray, np.ndarray]] = None
         self.edge_reference_quadrature: typing.Optional[typing.Tuple[np.ndarray, np.ndarray]] = None
-
-        # Initialise Method variables
-        self.auxilliary_function: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None
-
-        # Initialise functions
         self._intialise_quadrature()
 
     def add_data(self,
@@ -130,7 +106,7 @@ class DGFEM:
         self.dirichlet_bcs = dirichlet_bcs
 
         if self.dirichlet_bcs is None:
-            raise ValueError('Must have either Dirichlet boundary conditions.')
+            raise ValueError('Must have Dirichlet boundary conditions.')
 
         self.boundary_information = self._define_boundary_information()
 
@@ -153,19 +129,14 @@ class DGFEM:
         self.B += self._interior_stiffness_matrix()
 
         if self.diffusion is not None:
-            self.diffusion_bcs_matrix = self._diffusion_boundary_conditions()
-            self.forcing_diff_bcs_vector = self._forcing_boundary_conditions()
 
-            self.B -= self.diffusion_bcs_matrix
-            self.L -= self.forcing_diff_bcs_vector
+            self.B -= self._diffusion_boundary_conditions()
+            self.L -= self._forcing_boundary_conditions()
 
         if self.advection is not None:
 
-            self.advection_inflow_boundary = self._advection_contribution_inflow_boundary()
-            self.B -= self.advection_inflow_boundary
-
-            self.forcing_adv_bcs_vector = self._advection_bcs_vector()
-            self.L -= self.forcing_adv_bcs_vector
+            self.B -= self._advection_contribution_inflow_boundary()
+            self.L -= self._advection_bcs_vector()
 
         print(f"Assembly: {time.time() - _time}")
 
@@ -268,14 +239,13 @@ class DGFEM:
                 self.geometry.nodes[self.geometry.interior_edges[t, :], :],
                 self.geometry.elem_bounding_boxes[elem_oneface[0]],
                 self.geometry.elem_bounding_boxes[elem_oneface[1]],
-                self.geometry.nodes[
-                    self.geometry.subtriangulation[self.geometry.interior_edges_to_triangle[t, 0], :], :
-                ],
-                self.geometry.nodes[
-                    self.geometry.subtriangulation[self.geometry.interior_edges_to_triangle[t, 1], :], :
-                ],
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
+                self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[0]], :],
+                self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[1]], :],
+                self.geometry.areas[elem_oneface[0]],
+                self.geometry.areas[elem_oneface[1]],
+                self.polydegree,
                 self.sigma_D,
                 self.geometry.interior_normals[t, :],
                 self.diffusion,
@@ -304,23 +274,23 @@ class DGFEM:
         ind_x, ind_y = np.meshgrid(np.arange(self.dim_elem), np.arange(self.dim_elem))
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')
 
-        for t in range(self.boundary_information.elliptical_dirichlet_indecies.shape[0]):
+        for t in range(self.boundary_information.elliptical_indecies.shape[0]):
             element_idx = self.geometry.boundary_edges_to_element[t]
             i[:, element_idx] = self.dim_elem * element_idx + ind_x
             j[:, element_idx] = self.dim_elem * element_idx + ind_y
 
-        for v in list(self.boundary_information.elliptical_dirichlet_indecies):
-            Dirielem_bdface = self.geometry.boundary_edges_to_triangle[v]
-            local_triangle = self.geometry.subtriangulation[Dirielem_bdface, :]
+        for v in list(self.boundary_information.elliptical_indecies):
             element_idx = self.geometry.boundary_edges_to_element[v]
 
             local_bc_diff = localstiff_diffusion_bcs(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
-                self.geometry.nodes[local_triangle, :],
                 self.geometry.boundary_normals[v, :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
+                self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
+                self.geometry.areas[element_idx],
+                self.polydegree,
                 self.sigma_D,
                 self.diffusion
             )
@@ -337,19 +307,18 @@ class DGFEM:
         i = np.arange(self.dim_system)
         s = np.zeros(self.dim_system)
 
-        for v in list(self.boundary_information.elliptical_dirichlet_indecies):
-
-            Dirielem_bdface = self.geometry.boundary_edges_to_triangle[v]
-            local_triangle = self.geometry.subtriangulation[Dirielem_bdface, :]
+        for v in list(self.boundary_information.elliptical_indecies):
             element_idx = self.geometry.boundary_edges_to_element[v]
 
             vec_DiriBDface = C_vecDiriface(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
-                self.geometry.nodes[local_triangle, :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.geometry.boundary_normals[v, :],
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
+                self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
+                self.geometry.areas[element_idx],
+                self.polydegree,
                 self.sigma_D,
                 self.dirichlet_bcs,
                 self.diffusion
@@ -416,7 +385,7 @@ class DGFEM:
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
                 self.advection,
-                self.dirichlet_bcs,
+                self.dirichlet_bcs
             )
 
             s[element_idx * self.dim_elem: (element_idx + 1) * self.dim_elem] += vec_DiriBDface.flatten()
@@ -457,7 +426,7 @@ class DGFEM:
         elif self.advection is None:
             div_advection = lambda x: np.zeros(x.shape[0])
 
-        self.auxilliary_function = lambda x: self.reaction(x) - 0.5 * div_advection(x)
+        self.auxilliary_function = lambda x: self.reaction(x) + 0.5 * div_advection(x)
 
         l2_error, dg_error, h1_error = 0.0, 0.0, 0.0
 
@@ -490,14 +459,13 @@ class DGFEM:
                 self.geometry.nodes[self.geometry.interior_edges[t, :], :],
                 self.geometry.elem_bounding_boxes[elem_oneface[0]],
                 self.geometry.elem_bounding_boxes[elem_oneface[1]],
-                self.geometry.nodes[
-                    self.geometry.subtriangulation[self.geometry.interior_edges_to_triangle[t, 0], :], :
-                ],
-                self.geometry.nodes[
-                    self.geometry.subtriangulation[self.geometry.interior_edges_to_triangle[t, 1], :], :
-                ],
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
+                self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[0]], :],
+                self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[1]], :],
+                self.geometry.areas[elem_oneface[0]],
+                self.geometry.areas[elem_oneface[1]],
+                self.polydegree,
                 self.sigma_D,
                 self.geometry.interior_normals[t, :],
                 self.solution[elem_oneface[0] * self.dim_elem:(elem_oneface[0] + 1) * self.dim_elem],
@@ -510,14 +478,11 @@ class DGFEM:
 
         if self.diffusion is not None:
 
-            for v in list(self.boundary_information.elliptical_dirichlet_indecies):
-                Dirielem_bdface = self.geometry.boundary_edges_to_triangle[v]
-                local_triangle = self.geometry.subtriangulation[Dirielem_bdface, :]
-                element_idx = self.geometry.triangle_to_polygon[Dirielem_bdface]
+            for v in list(self.boundary_information.elliptical_indecies):
+                element_idx = self.geometry.boundary_edges_to_element[v]
 
                 dg_subnorm = error_bd_face(
                     self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
-                    self.geometry.nodes[local_triangle, :],
                     self.geometry.elem_bounding_boxes[element_idx],
                     self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
                     self.geometry.boundary_normals[v, :],
@@ -525,6 +490,9 @@ class DGFEM:
                     self.polynomial_indecies,
                     exact_solution,
                     self.diffusion,
+                    self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
+                    self.geometry.areas[element_idx],
+                    self.polydegree,
                     self.sigma_D
                 )
 

@@ -19,32 +19,24 @@ class BoundaryInformation:
         if 'tolerence' in kwargs:
             self.tolerence = kwargs.pop('tolerence')
 
-        self.elliptical_dirichlet_indecies: typing.Optional[np.ndarray] = None
-        # self.elliptical_neumann_indecies: typing.Optional[np.ndarray] = None
+        self.elliptical_indecies: typing.Optional[np.ndarray] = None
         self.inflow_indecies: typing.Optional[np.ndarray] = None
-        # self.outflow_indecies: typing.Optional[np.ndarray] = None
 
         # self.elliptical_dirichlet_and_inflow_indecies: typing.Optional[np.ndarray] = None
 
         self.generated_boundary_information: bool = False
-        # self.geometry: typing.Optional[DGFEMGeometry] = None
 
     def split_boundaries(self,
                          geometry: DGFEMGeometry,
                          advection: typing.Callable[[np.ndarray], np.ndarray],
                          diffusion: typing.Callable[[np.ndarray], np.ndarray]):
 
-        # self.geometry = geometry
-
         bdmids = 0.5 * (geometry.nodes[geometry.boundary_edges[:, 0], :] +
                         geometry.nodes[geometry.boundary_edges[:, 1], :])
 
-        # hyp_index = np.full((geometry.boundary_edges.shape[0],), True)
-        # self.elliptical_dirichlet_and_inflow_indecies = np.array([], dtype=int)
         self.inflow_indecies = np.array([], dtype=int)
 
         if diffusion is not None:
-
             # indecies of the boundary edges that are hyperbolic
             hyp_index = np.einsum(
                 'ni,nij,nj->n',
@@ -52,40 +44,15 @@ class BoundaryInformation:
                 diffusion(bdmids),
                 geometry.boundary_normals) <= self.tolerence
 
-            self.elliptical_dirichlet_indecies = np.array(
+            self.elliptical_indecies = np.array(
                 [index for index, v in enumerate(hyp_index) if not v]
             )
-
-        #     if advection is not None:
-        #
-        #         dirichlet_inflow = np.sum(
-        #             advection(bdmids[self.elliptical_dirichlet_indecies, :]) *
-        #             geometry.boundary_normals[self.elliptical_dirichlet_indecies, :],
-        #             1
-        #         ) <= self.tolerence
-        #
-        #         self.elliptical_dirichlet_and_inflow_indecies = np.array(
-        #             self.elliptical_dirichlet_indecies[dirichlet_inflow], dtype=int
-        #         )
-        #
-        # hyperbolic_indices = np.array(
-        #     [index for index, v in enumerate(hyp_index) if v]
-        # )
 
         if advection is not None:
             inflow_indecies = np.sum(advection(bdmids) * geometry.boundary_normals, 1) <= self.tolerence
             self.inflow_indecies = np.array([
                 i for i, v in enumerate(inflow_indecies) if v
             ])
-
-        # if (advection is not None) and hyperbolic_indices.any():
-        #     # indecies of the inflow boundaries
-        #
-        #     inflow_indecies = np.sum(advection(bdmids[hyperbolic_indices, :]) *
-        #                              geometry.boundary_normals[hyperbolic_indices, :], 1) <= self.tolerence
-        #
-        #     self.inflow_indecies = hyperbolic_indices[inflow_indecies]
-        #     self.outflow_indecies = hyperbolic_indices[~inflow_indecies]
 
         self.generated_boundary_information = True
 
@@ -97,8 +64,8 @@ class BoundaryInformation:
 
         fig, ax = plt.subplots()
 
-        if self.elliptical_dirichlet_indecies is not None:
-            for i, ind in enumerate(self.elliptical_dirichlet_indecies):
+        if self.elliptical_indecies is not None:
+            for i, ind in enumerate(self.elliptical_indecies):
                 edge_vertices = geometry.nodes[geometry.boundary_edges[ind, :], :]
 
                 if i == 0:
@@ -114,15 +81,6 @@ class BoundaryInformation:
                     ax.plot(edge_vertices[:, 0], edge_vertices[:, 1], label='Inflow Boundary', c='g')
                 else:
                     ax.plot(edge_vertices[:, 0], edge_vertices[:, 1], c='g')
-
-        # if self.outflow_indecies is not None:
-        #     for i, ind in enumerate(self.outflow_indecies):
-        #         edge_vertices = self.geometry.nodes[self.geometry.boundary_edges[ind, :], :]
-        #
-        #         if i == 0:
-        #             ax.plot(edge_vertices[:, 0], edge_vertices[:, 1], label='Outflow Boundary', c='r')
-        #         else:
-        #             ax.plot(edge_vertices[:, 0], edge_vertices[:, 1], c='r')
 
         plt.legend()
         plt.show()

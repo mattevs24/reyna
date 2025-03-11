@@ -13,6 +13,7 @@ Boltzmann Transport. arXiv preprint arXiv:2412.01660. (2024)
 """
 
 import itertools
+import time
 
 import numpy as np
 
@@ -57,6 +58,10 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
     if 'verbose' in kwargs:
         verbose = kwargs.pop('verbose')
 
+    cleaned_mesh: bool = False
+    if 'cleaned' in kwargs:
+        cleaned_mesh = kwargs.pop('cleaned')
+
     fixed_points = domain.pFix()  # from here can call domain.fixed_points -- this initialises the property simult
     if fixed_points is not None:
         points = np.concatenate((fixed_points, points), axis=0)
@@ -67,28 +72,28 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
     iteration, error, tolerance = 0, 1.0, 1e-4
     bounding_box = domain.bounding_box
 
-    # TODO: maybe this should be domain.area?
     area = (bounding_box[0, 1] - bounding_box[0, 0]) * (bounding_box[1, 1] - bounding_box[1, 0])
 
     while iteration <= max_iterations and error > tolerance:
+
+        _time = time.time()
         reflected_points = _poly_mesher_reflect(points, domain, area)
 
         voronoi = Voronoi(np.concatenate((points, reflected_points), axis=0), qhull_options='Qbb Qz')
 
-        if len(voronoi.regions[0]) == 0:
-            sorting = [np.where(voronoi.point_region == x)[0][0] for x in range(1, len(voronoi.regions))]
-            elements = [np.array(x) for _, x in sorted(zip(sorting, voronoi.regions[1:]))]
-        else:
-            empty_ind = voronoi.regions.index([])
-            sorting_1 = [np.where(voronoi.point_region == x)[0][0] for x in range(0, empty_ind)]
-            sorting_2 = [np.where(voronoi.point_region == x)[0][0] for x in range(empty_ind+1, len(voronoi.regions))]
-            sorting = sorting_1 + sorting_2
-            regions = voronoi.regions
-            del regions[empty_ind]
-            elements = [np.array(x) for _, x in sorted(zip(sorting, regions))]
+        empty_ind = voronoi.regions.index([])
+        sorting = np.argsort(voronoi.point_region)
+        del voronoi.regions[empty_ind]
+        elements = [np.array(voronoi.regions[i]) for i in np.argsort(sorting)]
 
         if iteration > max_iterations - 1 or error <= 2.0 * tolerance:
             vertices, regions = _poly_mesher_extract_nodes(voronoi.vertices, elements[: points.shape[0]])
+
+            if cleaned_mesh:
+                vertices, regions = _poly_mesher_extract_nodes(vertices, regions)
+                vertices, regions = _poly_mesher_collapse_small_edges(vertices, regions, 0.1)
+
+                return PolyMesh(vertices, regions, points, voronoi.ridge_points, domain)
 
             return PolyMesh(vertices, regions, points, voronoi.ridge_points, domain)
 
@@ -158,21 +163,24 @@ def _poly_mesher_reflect(points: np.ndarray, domain: Domain, area: float) -> (np
     d = domain.distances(points)
     n_boundary_segments = d.shape[1] - 1
 
-    n_1 = 1.0 / epsilon * (domain.distances(points + np.tile(np.array([epsilon, 0.0]), (n_points, 1))) - d)
-    n_2 = 1.0 / epsilon * (domain.distances(points + np.tile(np.array([0.0, epsilon]), (n_points, 1))) - d)
+    eps_array = np.array([epsilon, 0.0])
+    n_1 = 1.0 / epsilon * (domain.distances(points + eps_array) - d)
+
+    eps_array = np.array([0.0, epsilon])
+    n_2 = 1.0 / epsilon * (domain.distances(points + eps_array) - d)
 
     log_ind = np.abs(d[:, :n_boundary_segments]) < alpha
 
     p_1 = np.tile(points[:, 0][:, np.newaxis], (1, n_boundary_segments))
     p_2 = np.tile(points[:, 1][:, np.newaxis], (1, n_boundary_segments))
 
-    p_1 = np.concatenate([p_1[log_ind[:, i], i] for i in range(n_boundary_segments)], axis=0)[:, np.newaxis]
-    p_2 = np.concatenate([p_2[log_ind[:, i], i] for i in range(n_boundary_segments)], axis=0)[:, np.newaxis]
+    p_1 = p_1.T[log_ind.T][:, np.newaxis]
+    p_2 = p_2.T[log_ind.T][:, np.newaxis]
 
-    n_1 = np.concatenate([n_1[log_ind[:, i], i] for i in range(n_boundary_segments)], axis=0)[:, np.newaxis]
-    n_2 = np.concatenate([n_2[log_ind[:, i], i] for i in range(n_boundary_segments)], axis=0)[:, np.newaxis]
+    n_1 = n_1[:, :-1].T[log_ind.T][:, np.newaxis]
+    n_2 = n_2[:, :-1].T[log_ind.T][:, np.newaxis]
 
-    d = np.concatenate([d[log_ind[:, i], i] for i in range(n_boundary_segments)], axis=0)[:, np.newaxis]
+    d = d[:, :-1].T[log_ind.T][:, np.newaxis]
 
     r_ps = np.concatenate((p_1, p_2), axis=1) - 2.0 * np.concatenate((n_1, n_2), axis=1) * np.tile(d, (1, 2))
 
@@ -180,7 +188,7 @@ def _poly_mesher_reflect(points: np.ndarray, domain: Domain, area: float) -> (np
 
     logical_rp = np.logical_and(r_p_ds[:, -1] > 0, np.abs(r_p_ds[:, -1]) >= 0.9 * np.abs(d).flatten())
 
-    r_ps = r_ps[logical_rp, :]
+    r_ps = r_ps[logical_rp]
 
     if not r_ps.size == 0:
         r_ps = np.unique(r_ps, axis=0)
@@ -239,3 +247,38 @@ def _poly_mesher_rebuild_lists(nodes: np.ndarray, elements: list, c_nodes: np.nd
         _elems.append(temp_elem[perm])
 
     return nodes, _elems
+
+
+def _poly_mesher_collapse_small_edges(nodes: np.ndarray, elements: list, tolerance: float) -> (np.ndarray, list):
+
+    while True:
+
+        c_edge = np.array([[]])
+        for element in elements:
+            n_v = len(element)
+
+            if n_v <= 3:
+                continue  # this is the case when the element is a triangle -- can't collapse
+
+            v_ = nodes[element]
+            beta = np.arctan2(v_[:, 1] - np.sum(v_[:, 1])/n_v, v_[:, 0] - np.sum(v_[:, 0])/n_v)
+            beta = np.mod(np.roll(beta, -1) - beta, 2 * np.pi)
+            beta_ideal = 2 * np.pi / n_v
+            edges = np.concatenate((np.array(element)[:, np.newaxis], np.roll(element, -1)[:, np.newaxis]), axis=1)
+            idx = beta < tolerance * beta_ideal
+            if (e_ := edges[idx, :]).size != 0:
+                if c_edge.size == 0:
+                    c_edge = np.atleast_2d(e_)
+                else:
+                    c_edge = np.concatenate((c_edge, np.atleast_2d(e_)), axis=0)
+
+        if c_edge.size == 0:
+            break
+
+        c_edge = np.unique(np.sort(c_edge), axis=0)
+        c_nodes = np.arange(nodes.shape[0])
+        c_nodes[c_edge[:, 1]] = c_nodes[c_edge[:, 0]]
+
+        nodes, elements = _poly_mesher_rebuild_lists(nodes, elements, c_nodes)
+
+    return nodes, elements

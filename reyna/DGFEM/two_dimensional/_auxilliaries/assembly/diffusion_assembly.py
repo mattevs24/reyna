@@ -6,11 +6,12 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import tens
 
 
 def localstiff_diffusion_bcs(nodes: np.ndarray,
-                             vertice: np.ndarray,
                              normal: np.ndarray,
                              bounding_box: np.ndarray,
                              edge_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
                              Lege_ind: np.ndarray,
+                             element_nodes: np.ndarray,
+                             k_area: float, polydegree: float,
                              sigma_D: float,
                              diffusion: typing.Callable[[np.ndarray], np.ndarray]) -> np.ndarray:
     """
@@ -19,7 +20,6 @@ def localstiff_diffusion_bcs(nodes: np.ndarray,
 
     Args:
         nodes: The two boundary nodes between which the edge lies
-        vertice: The vertices of the corresponding subtriangle
         normal: The OPUNV to the boundary edge in question
         bounding_box: The bounding box of the element in question
         edge_quadrature_rule: The quadrature rule for the edge
@@ -46,9 +46,10 @@ def localstiff_diffusion_bcs(nodes: np.ndarray,
 
     # penalty term
     lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
-    to_be_summed = (vertice - nodes[0, None, :]) * normal[None, :]
-    measure_B = np.max(np.fabs(to_be_summed.sum(axis=1)))
-    sigma = 2.0 * sigma_D * lambda_dot / measure_B
+
+    abs_k_b = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes - nodes[0, :]))))
+    c_inv = min(k_area / abs_k_b, polydegree ** 2)
+    sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * c_inv / k_area
 
     # n_vec = np.kron(normal, np.ones((ref_Qpoints.shape[0], 1)))
     a_val = diffusion(P_Qpoints)

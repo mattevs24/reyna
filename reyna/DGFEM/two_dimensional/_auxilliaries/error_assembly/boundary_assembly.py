@@ -6,7 +6,6 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import tens
 
 
 def error_bd_face(nodes: np.ndarray,
-                  vertices: np.ndarray,
                   bounding_box: np.ndarray,
                   df_coefs: np.ndarray,
                   normal: np.ndarray,
@@ -14,6 +13,8 @@ def error_bd_face(nodes: np.ndarray,
                   Lege_ind: np.ndarray,
                   u_exact: typing.Callable[[np.ndarray], np.ndarray],
                   diffusion: typing.Callable[[np.ndarray], np.ndarray],
+                  element_nodes: np.ndarray,
+                  k_area: float, polydegree: float,
                   sigma_D: float) -> float:
 
     """
@@ -21,7 +22,6 @@ def error_bd_face(nodes: np.ndarray,
 
     Args:
         nodes: The nodes of the simplex in question.
-        vertices: The vertices of the simplices which contain this boundary edge.
         bounding_box: The bounding box of the element which contains the simplex.
         df_coefs: The DG coefficients corresponding to the element in question.
         normal: The OPUNV to the boundary facet.
@@ -51,9 +51,10 @@ def error_bd_face(nodes: np.ndarray,
 
     # penalty term
     lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
-    to_be_summed = (vertices - nodes[0, None, :]) * normal[None, :]
-    measure_B = np.max(np.fabs(to_be_summed.sum(axis=1)))
-    sigma = 2.0 * sigma_D * lambda_dot / measure_B
+
+    abs_k_b = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes - nodes[0, :]))))
+    c_inv = min(k_area / abs_k_b, polydegree ** 2)
+    sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * c_inv / k_area
 
     u_val = u_exact(P_Qpoints)
 

@@ -6,11 +6,12 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import tens
 
 
 def C_vecDiriface(nodes: np.ndarray,
-                  vertices: np.ndarray,
                   bounding_box: np.ndarray,
                   normal: np.ndarray,
                   edge_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
                   Lege_ind: np.ndarray,
+                  element_nodes: np.ndarray,
+                  k_area: float, polydegree: float,
                   sigma_D: float,
                   dirichlet_bcs: typing.Callable[[np.ndarray], np.ndarray],
                   diffusion: typing.Callable[[np.ndarray], np.ndarray]) -> np.ndarray:
@@ -19,7 +20,6 @@ def C_vecDiriface(nodes: np.ndarray,
 
     Args:
         nodes: The endpoints of the boundary edge.
-        vertices: The vertices of the corresponding polygon.
         bounding_box: The bounding box of the corresponding polygon.
         normal: The OPUNV to the boundary edge.
         edge_quadrature_rule: The quadrature rule for the edge in question.
@@ -43,12 +43,12 @@ def C_vecDiriface(nodes: np.ndarray,
     P_Qpoints = ref_Qpoints @ tanvec[:, None].T + C
     De = np.linalg.norm(tanvec)
 
-    # Penalty term
-
+    # penalty term
     lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
-    to_be_summed = (vertices - nodes[0, None, :]) * normal[None, :]
-    measure_B = np.max(np.fabs(to_be_summed.sum(axis=1)))
-    sigma = 2.0 * sigma_D * lambda_dot / measure_B
+
+    abs_k_b = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes - nodes[0, :]))))
+    c_inv = min(k_area / abs_k_b, polydegree ** 2)
+    sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * c_inv / k_area
 
     # n_vec = np.kron(normal, np.ones((ref_Qpoints.shape[0], 1)))
     g_val = dirichlet_bcs(P_Qpoints)
