@@ -1,6 +1,6 @@
 # reyna
 
-A lightweight purely Python package for solving partial differential equations (PDEs) using polygonal discontinuous 
+A lightweight Python package for solving partial differential equations (PDEs) using polygonal discontinuous 
 Galerkin finite elements, providing a flexible and efficient way to approximate solutions to complex PDEs.
 
 ### Features
@@ -34,18 +34,17 @@ pip install git+https://github.com/mattevs24/reyna.git
 A simple example to begin with is the `RectangleDomain` object. This requires just the bounding
 box as an input. In this case, we consider the unit square; $[0, 1]^2$. We then use `poly_mesher` 
 to generate a bounded Voronoi mesh of the domain. This uses Lloyd's algorithm, which can produce
-edges that are machine precision in length. To avoid this, apply the `poly_mesher_cleaner` to remove
-these.
+edges that are machine precision in length. To avoid this for benchmarking and other critical 
+purposes, use the `cleaned` keyword, set to `True`.
 
 ```python
 import numpy as np
 
 from reyna.polymesher.two_dimensional.domains import RectangleDomain
-from reyna.polymesher.two_dimensional.main import poly_mesher, poly_mesher_cleaner
+from reyna.polymesher.two_dimensional.main import poly_mesher
 
 domain = RectangleDomain(bounding_box=np.array([[0, 1], [0, 1]]))
 poly_mesh = poly_mesher(domain, max_iterations=10, n_points=1024)
-poly_mesh = poly_mesher_cleaner(poly_mesh)
 ```
 
 ### Generating the Geometry Information
@@ -77,9 +76,10 @@ example is given
 ```python
 diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)
 advection = lambda x: np.ones(x.shape, dtype=float)
-reaction = lambda x: -2 * np.pi ** 2 * np.ones(x.shape[0], dtype=float)
+reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
 forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
-                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1]))
+                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])) + \
+                    3.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 
 solution = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 ```
@@ -146,10 +146,12 @@ dg_error, l2_error, h1_error = dg.errors(
 ```
 
 Often, the error rate is calcuated against the maximal cell diameter; the code for this is included in
-the DGFEM class under the `h` method.
+the `DGFEM` class under the `h` method as well as the `DGFEMgeometry` class under the `h` method (`DGFEMgeometry` 
+additionally contains all the local values of `h` across the mesh).
 
 ```python
 h = dg.h
+h = geometry.h
 ```
 
 Note that in a purely advection/diffusion problem, some of the norms are unavailable and return
@@ -185,12 +187,11 @@ This package was developed by mattevs24 during a PhD programme funded by the Fre
 and Atomic Energy Commission. A Special thanks to the support of Ansar Calloo, Fraçois Madiot throughout
 the PhD so far. A further thank you to my interal supervisors Tristan Pryer and Luca Zanetti for their role
 in this project too and useful feedback on usability and support. Finally, a thank you to my partner
-reyna who puts up with all this nonsense!
+Reyna who puts up with all this nonsense!
 
 ## Upcoming Updates
 
 There are many features that remain to add to this code! We hope to add support for the following features
 
 - Mixed-type problems: support for multiple types of PDE on the same domain.
-- Mixed boundary conditions: support for both Neumann and Robin boundary conditions and combinations of all three Dirichlet, Neumann and Robin boundary conditions.
 - Full readthedocs documentation to support the further developement and use of this package.
