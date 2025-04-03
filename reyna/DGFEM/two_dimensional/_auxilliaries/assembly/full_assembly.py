@@ -2,8 +2,8 @@ import typing
 
 import numpy as np
 
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import tensor_leg, \
-    gradtensor_leg, reference_to_physical_t3
+from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import reference_to_physical_t3, \
+    tensor_tensor_leg, tensor_gradtensor_leg
 
 
 def localstiff(nodes: np.ndarray,
@@ -48,13 +48,17 @@ def localstiff(nodes: np.ndarray,
     m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
 
     # Generate the tensor Legendre polynomial values
-    tensor_leg_array = np.array([
-        tensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-    ])
+    # tensor_leg_array = np.array([
+    #     tensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
+    # ])
+    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, Lege_ind)
 
-    gradtensor_leg_array = np.array([
-        gradtensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-    ])
+    # gradtensor_leg_array = np.array([
+    #     gradtensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
+    # ])
+
+    gradtensor_leg_array = tensor_gradtensor_leg(P_Qpoints, m, h, Lege_ind)
+
     if diffusion is not None:
         a_val = diffusion(P_Qpoints)
         z += np.einsum(
@@ -108,13 +112,9 @@ def int_localstiff(nodes: np.ndarray,
     P_Qpoints = ref_Qpoints @ tanvec[:, None].T + C
     De = np.linalg.norm(tanvec)
 
-    tensor_leg_array = np.array([
-        np.array([
-            tensor_leg(P_Qpoints, m1, h1, Lege_ind[i, :]),
-            tensor_leg(P_Qpoints, m2, h2, Lege_ind[i, :])
-        ])
-        for i in range(dim_elem)
-    ])
+    tensor_leg_array = np.stack(
+        (tensor_tensor_leg(P_Qpoints, m1, h1, Lege_ind),
+         tensor_tensor_leg(P_Qpoints, m2, h2, Lege_ind)), axis=1)
 
     z = np.zeros((2 * dim_elem, 2 * dim_elem))
 
@@ -135,13 +135,9 @@ def int_localstiff(nodes: np.ndarray,
         auxiliary_sigma_3 = np.zeros((dim_elem, dim_elem))
         auxiliary_sigma_4 = np.zeros((dim_elem, dim_elem))
 
-        gradtensor_leg_array = np.array([
-            np.array([
-                gradtensor_leg(P_Qpoints, m1, h1, Lege_ind[i, :]),
-                gradtensor_leg(P_Qpoints, m2, h2, Lege_ind[i, :])
-            ])
-            for i in range(dim_elem)
-        ])
+        gradtensor_leg_array = np.stack(
+            (tensor_gradtensor_leg(P_Qpoints, m1, h1, Lege_ind),
+             tensor_gradtensor_leg(P_Qpoints, m2, h2, Lege_ind)), axis=1)
 
         a_val = diffusion(P_Qpoints)
 

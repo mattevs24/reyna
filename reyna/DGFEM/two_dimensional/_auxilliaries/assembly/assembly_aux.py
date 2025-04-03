@@ -2,7 +2,7 @@ import importlib_resources as resources
 
 import numpy as np
 
-from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import LegendreP
+from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import LegendreP, tensor_LegendreP
 
 
 def quad_GL(n: int):
@@ -59,14 +59,55 @@ def tensor_leg(x, m, h, order):
 def gradtensor_leg(x, m, h, order):
 
     val = np.zeros((x.shape[0], 2))
-    
+
     shift_leg_der_11 = shift_leg_derivative(x[:, 0], m[0], h[0], order[0], 1)
     shift_leg_der_12 = shift_leg_derivative(x[:, 1], m[1], h[1], order[1], 0)
     shift_leg_der_21 = shift_leg_derivative(x[:, 0], m[0], h[0], order[0], 0)
     shift_leg_der_22 = shift_leg_derivative(x[:, 1], m[1], h[1], order[1], 1)
-    
+
     val[:, 0] = shift_leg_der_11 * shift_leg_der_12
     val[:, 1] = shift_leg_der_21 * shift_leg_der_22
+
+    return val
+
+
+def tensor_shift_leg(x, _m, _h, polydegree, correction = None):
+    tol = np.finfo(float).eps
+    y = (x - _m) / _h
+
+    mask = np.abs(y) > 1.0
+    y[mask] = (1.0 - tol) * np.sign(y[mask])
+    if correction is None:
+        P = _h ** (-0.5) * tensor_LegendreP(y, 0, polydegree)
+    else:
+        P = _h ** (-1.5) * tensor_LegendreP(y, 1, polydegree - 1) * correction[:, None]
+        P = np.vstack((np.zeros(x.shape), P))
+
+    return P
+
+def tensor_tensor_leg(x, _m, _h, orders):
+    polydegree = np.max(orders)
+    val = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree)[orders[:, 0], :] * \
+        tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree)[orders[:, 1], :]
+
+    return val
+
+
+def tensor_gradtensor_leg(x, _m, _h, orders):
+
+    val = np.zeros((orders.shape[0], x.shape[0], 2))
+    polydegree = np.max(orders)
+    correction = np.array([np.sqrt((i + 1.0) * i) for i in range(1, polydegree + 1)])
+
+    shift_leg_der_11 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction)[orders[:, 0], :]
+
+    shift_leg_der_12 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree)[orders[:, 1], :]
+    shift_leg_der_21 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree)[orders[:, 0], :]
+
+    shift_leg_der_22 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction)[orders[:, 1], :]
+
+    val[..., 0] = shift_leg_der_11 * shift_leg_der_12
+    val[..., 1] = shift_leg_der_21 * shift_leg_der_22
 
     return val
 

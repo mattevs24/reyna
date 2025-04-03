@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 from reyna.polymesher.two_dimensional.domains import RectangleDomain, HornDomain, CircleCircleDomain, LShapeDomain
@@ -124,14 +126,25 @@ geometry = DGFEMGeometry(poly_mesh)
 
 diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)
 advection = lambda x: np.ones(x.shape, dtype=float)
-reaction = lambda x: -2 * np.pi ** 2 * np.ones(x.shape[0], dtype=float)
-forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
-                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1]))
+reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
+forcing = lambda x: (np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
+                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])) +
+                     3.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]))
 
+polydegree = 3
 
-dg = DGFEM(geometry, polynomial_degree=1)
+dg = DGFEM(geometry, polynomial_degree=polydegree)
 dg.add_data(diffusion=diffusion, advection=advection, reaction=reaction, dirichlet_bcs=solution, forcing=forcing)
+
+_old_time = 4.770437955856323  if polydegree == 1 else 19.09006381034851  # These are P1 and P3 cases
+_time = time.time()
+
 dg.dgfem(solve=True)
+
+# TODO: need to make all the changes and benchmark properly before commiting to main and updating the package
+
+print(f"Time saved (s): {(_old_time - (time.time() - _time)):.5f}s")
+print(f"Time saved (%): {(100 * (_old_time - (time.time() - _time)) / _old_time):.5f}%")
 
 plot_DG(dg.solution, geometry, dg.polydegree)
 #
@@ -143,3 +156,13 @@ plot_DG(dg.solution, geometry, dg.polydegree)
 #
 # print(f"dg norm: {dg_norm}")
 # print(f"L2 norm: {l2_norm}")
+
+# Section: log of time changes
+
+#     Original           stiffness          Int_edges           Diff_assembly       Adv_assembly
+# P1  4.770437955856323  4.246790170669556  3.5955491065979004  3.5803170204162598  3.498729944229126
+# P3  19.09006381034851  15.20890784263611  10.651919126510620  10.508561134338379  10.51161813735962
+
+#     F_assembly         Adv_diff_bcs
+# P1  3.480814933776855  3.420440912246704
+# P3  9.955646991729736  9.842134952545166

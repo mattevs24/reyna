@@ -4,18 +4,16 @@ import time
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
-import matplotlib.pyplot as plt
 
 from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
 from reyna.DGFEM.two_dimensional._auxilliaries.boundary_information import BoundaryInformation
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import Basis_index2D
 
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.diffusion_assembly import localstiff_diffusion_bcs
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.advection_assembly import localinflowface
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.forcing_assembly import C_vecDiriface, vect_inflowDiriface
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.full_assembly import localstiff, int_localstiff
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import quad_GL, quad_GJ1
+
+from reyna.DGFEM.two_dimensional._auxilliaries.assembly.boundary_assembly import local_advection_inflow, local_diffusion_dirichlet
 
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.boundary_assembly import error_bd_face, error_cr_bd_face
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.full_assembly import error_element, error_interface
@@ -23,7 +21,7 @@ from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.full_assembly impo
 
 class DGFEM:
 
-    def __init__(self, geometry: DGFEMGeometry, polynomial_degree: int = 0):
+    def __init__(self, geometry: DGFEMGeometry, polynomial_degree: int = 1):
         """
         Class initialisation
 
@@ -130,13 +128,17 @@ class DGFEM:
 
         if self.diffusion is not None:
 
-            self.B -= self._diffusion_boundary_conditions()
-            self.L -= self._forcing_boundary_conditions()
+            diff_B, diff_f = self._diffusion_bcs_contribution()
+
+            self.B -= diff_B
+            self.L -= diff_f
 
         if self.advection is not None:
 
-            self.B -= self._advection_contribution_inflow_boundary()
-            self.L -= self._advection_bcs_vector()
+            adv_B, adv_f = self._advection_bcs_contribution()
+
+            self.B -= adv_B
+            self.L -= adv_f
 
         print(f"Assembly: {time.time() - _time}")
 
@@ -265,11 +267,12 @@ class DGFEM:
 
         return int_ip_matrix
 
-    def _diffusion_boundary_conditions(self):
-
+    def _diffusion_bcs_contribution(self):
         i = np.zeros((self.dim_elem ** 2, self.geometry.n_elements), dtype=int)
         j = np.zeros((self.dim_elem ** 2, self.geometry.n_elements), dtype=int)
         s = np.zeros((self.dim_elem ** 2, self.geometry.n_elements))
+
+        s_f = np.zeros((self.dim_system, 1))
 
         ind_x, ind_y = np.meshgrid(np.arange(self.dim_elem), np.arange(self.dim_elem))
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')
@@ -282,35 +285,7 @@ class DGFEM:
         for v in list(self.boundary_information.elliptical_indecies):
             element_idx = self.geometry.boundary_edges_to_element[v]
 
-            local_bc_diff = localstiff_diffusion_bcs(
-                self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
-                self.geometry.boundary_normals[v, :],
-                self.geometry.elem_bounding_boxes[element_idx],
-                self.edge_reference_quadrature,
-                self.polynomial_indecies,
-                self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
-                self.geometry.areas[element_idx],
-                self.polydegree,
-                self.sigma_D,
-                self.diffusion
-            )
-
-            s[:, element_idx] += local_bc_diff.flatten('F')
-
-        diffusion_bcs_stiffness_matrix = csr_matrix((s.flatten('F'), (i.flatten('F'), j.flatten('F'))),
-                                                    shape=(self.dim_system, self.dim_system))
-
-        return diffusion_bcs_stiffness_matrix
-
-    def _forcing_boundary_conditions(self):
-
-        i = np.arange(self.dim_system)
-        s = np.zeros(self.dim_system)
-
-        for v in list(self.boundary_information.elliptical_indecies):
-            element_idx = self.geometry.boundary_edges_to_element[v]
-
-            vec_DiriBDface = C_vecDiriface(
+            local_bc_diff, local_bcs_forcing = local_diffusion_dirichlet(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.geometry.boundary_normals[v, :],
@@ -324,23 +299,27 @@ class DGFEM:
                 self.diffusion
             )
 
-            s[element_idx * self.dim_elem: (element_idx + 1) * self.dim_elem] += vec_DiriBDface
+            s[:, element_idx] += local_bc_diff.flatten('F')
+            s_f[element_idx * self.dim_elem: (element_idx + 1) * self.dim_elem] += local_bcs_forcing
 
-        forcing_boundary_conditions_matrix = csr_matrix((s, (i, np.zeros(self.dim_system, dtype=int))),
-                                                        shape=(self.dim_system, 1))
+        diffusion_bcs_stiffness_matrix = csr_matrix((s.flatten('F'), (i.flatten('F'), j.flatten('F'))),
+                                                    shape=(self.dim_system, self.dim_system))
 
-        return forcing_boundary_conditions_matrix
+        forcing_bcs_diffusion = csr_matrix(s_f)
 
-    def _advection_contribution_inflow_boundary(self):
+        return diffusion_bcs_stiffness_matrix, forcing_bcs_diffusion
 
+    def _advection_bcs_contribution(self):
         """
-        This method generates the portion of the stiffness matrix associated with the inflow
-        boundary for the upwind scheme used.
-        """
+                This method generates the portion of the stiffness matrix associated with the inflow
+                boundary for the upwind scheme used.
+                """
 
         i = np.zeros((self.dim_elem ** 2, len(self.boundary_information.inflow_indecies)), dtype=int)
         j = np.zeros((self.dim_elem ** 2, len(self.boundary_information.inflow_indecies)), dtype=int)
         s = np.zeros((self.dim_elem ** 2, len(self.boundary_information.inflow_indecies)))
+
+        s_f = np.zeros((self.dim_system, 1))
 
         ind_x, ind_y = np.meshgrid(np.arange(self.dim_elem), np.arange(self.dim_elem))
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')
@@ -348,52 +327,27 @@ class DGFEM:
         for t, v in enumerate(list(self.boundary_information.inflow_indecies)):
             element_idx = self.geometry.boundary_edges_to_element[v]
 
-            local_bc_adv = localinflowface(
+            local_bc_adv, forcing_bcs_adv = local_advection_inflow(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.geometry.boundary_normals[v, :],
-                self.edge_reference_quadrature,
-                self.polynomial_indecies,
-                self.advection
-            )
-
-            i[:, t] = self.dim_elem * element_idx + ind_x
-            j[:, t] = self.dim_elem * element_idx + ind_y
-            s[:, t] += local_bc_adv.flatten('F')
-
-        diffusion_bcs_stiffness_matrix = csr_matrix((s.flatten('F'), (i.flatten('F'), j.flatten('F'))),
-                                                    shape=(self.dim_system, self.dim_system))
-
-        return diffusion_bcs_stiffness_matrix
-
-    def _advection_bcs_vector(self):
-
-        """
-        This method generates the contribution of the advection field to the data vector.
-        """
-
-        i = np.arange(self.dim_system)
-        s = np.zeros(self.dim_system)
-
-        for v in list(self.boundary_information.inflow_indecies):
-            element_idx = self.geometry.boundary_edges_to_element[v]
-
-            vec_DiriBDface = vect_inflowDiriface(
-                self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
-                self.geometry.boundary_normals[v, :],
-                self.geometry.elem_bounding_boxes[element_idx],
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
                 self.advection,
                 self.dirichlet_bcs
             )
 
-            s[element_idx * self.dim_elem: (element_idx + 1) * self.dim_elem] += vec_DiriBDface.flatten()
+            i[:, t] = self.dim_elem * element_idx + ind_x
+            j[:, t] = self.dim_elem * element_idx + ind_y
+            s[:, t] += local_bc_adv.flatten('F')
 
-        forcing_inflow_bcs_vector = csr_matrix((s, (i, np.zeros(self.dim_system, dtype=int))),
-                                               shape=(self.dim_system, 1))
+            s_f[element_idx * self.dim_elem: (element_idx + 1) * self.dim_elem] += forcing_bcs_adv
 
-        return forcing_inflow_bcs_vector
+        advection_bcs_stiffness_matrix = csr_matrix((s.flatten('F'), (i.flatten('F'), j.flatten('F'))),
+                                                    shape=(self.dim_system, self.dim_system))
+        forcing_inflow_bcs_vector = csr_matrix(s_f)
+
+        return advection_bcs_stiffness_matrix, forcing_inflow_bcs_vector
 
     def errors(self,
                exact_solution: typing.Callable[[np.ndarray], np.ndarray],
