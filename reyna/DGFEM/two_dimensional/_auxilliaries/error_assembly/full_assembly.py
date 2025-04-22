@@ -2,8 +2,8 @@ import typing
 
 import numpy as np
 
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import tensor_leg, gradtensor_leg,\
-    reference_to_physical_t3
+from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import (reference_to_physical_t3,
+                                                                    tensor_tensor_leg, tensor_gradtensor_leg)
 
 
 def error_element(nodes: np.ndarray,
@@ -37,11 +37,7 @@ def error_element(nodes: np.ndarray,
     u_val = u_exact(P_Qpoints)
     c0_val = auxilliary_function(P_Qpoints)
 
-    dim_elem = Lege_ind.shape[0]
-
-    tensor_leg_array = np.array([
-        tensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-    ])
+    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, Lege_ind)
 
     u_DG_val = tensor_leg_array.T @ dg_coefs
 
@@ -53,9 +49,7 @@ def error_element(nodes: np.ndarray,
         a_val = a_val.reshape(a_val.shape[0], a_val.shape[1] * a_val.shape[2])
         grad_u_val = grad_u_exact(P_Qpoints)
 
-        gradtensor_leg_array = np.array([
-            gradtensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-        ])
+        gradtensor_leg_array = tensor_gradtensor_leg(P_Qpoints, m, h, Lege_ind)
 
         grad_u_DG = np.vstack((gradtensor_leg_array[:, :, 0].T @ dg_coefs,
                                gradtensor_leg_array[:, :, 1].T @ dg_coefs)).T
@@ -104,8 +98,6 @@ def error_interface(nodes: np.ndarray,
     h2 = 0.5 * np.array([BDbox2[1] - BDbox2[0], BDbox2[3] - BDbox2[2]])
     m2 = 0.5 * np.array([BDbox2[1] + BDbox2[0], BDbox2[3] + BDbox2[2]])
 
-    dim_elem = Lege_ind.shape[0]  # number of basis for each element
-
     # Generating quadrature points and weights
     weights, ref_Qpoints = edge_quadrature_rule
 
@@ -118,16 +110,14 @@ def error_interface(nodes: np.ndarray,
 
     weights = De * weights
 
-    tensor_leg_array = np.array([
-        np.array([
-            tensor_leg(P_Qpoints, m1, h1, Lege_ind[i, :]),
-            tensor_leg(P_Qpoints, m2, h2, Lege_ind[i, :])
-        ])
-        for i in range(dim_elem)
-    ])
+    tensor_leg_array = np.stack(
+        (tensor_tensor_leg(P_Qpoints, m1, h1, Lege_ind),
+         tensor_tensor_leg(P_Qpoints, m2, h2, Lege_ind)), axis=1)
 
     u_DG_val1 = np.matmul(tensor_leg_array[:, 0, :].T, dg_coefs1)  # DG solution on kappa1
     u_DG_val2 = np.matmul(tensor_leg_array[:, 1, :].T, dg_coefs2)  # DG solution on kappa2
+
+    t = (u_DG_val1 - u_DG_val2) ** 2
 
     dg_subnorm: float = 0.0
 
@@ -137,17 +127,19 @@ def error_interface(nodes: np.ndarray,
         abs_k_b_1 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_1 - nodes[0, :]))))
         abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))
 
-        c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)
-        c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
+        # Assuming p-coverability
+        # c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)
+        # c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
+        #
+        # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
 
-        sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
+        # Assuming lack of p-coverability
+        sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) / min(abs_k_b_1, abs_k_b_2)
 
-        t = (u_DG_val1 - u_DG_val2) ** 2
         dg_subnorm += sigma * np.dot(t, weights)[0]
 
     if advection is not None:
         b_val = advection(P_Qpoints)
-        t = np.abs(np.sum(b_val * normal[None, :], axis=1)) * (u_DG_val1 - u_DG_val2) ** 2
-        dg_subnorm += 0.5 * np.dot(t, weights)[0]
+        dg_subnorm += 0.5 * np.dot(np.abs(np.sum(b_val * normal[None, :], axis=1)) * t, weights)[0]
 
     return dg_subnorm

@@ -2,7 +2,7 @@ import importlib_resources as resources
 
 import numpy as np
 
-from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import LegendreP, tensor_LegendreP
+from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import tensor_LegendreP
 
 
 def quad_GL(n: int):
@@ -30,45 +30,6 @@ def reference_to_physical_t3(t: np.ndarray, ref: np.ndarray):
     phy = np.dot(np.column_stack([1.0 - ref[:, 0] - ref[:, 1], ref[:, 0], ref[:, 1]]), t)
 
     return phy
-
-
-def shift_leg_derivative(x, m, h, order, k):
-    tol = np.finfo(float).eps
-    y = (x - m) / h
-
-    mask = np.abs(y) > 1.0
-    y[mask] = (1.0 - tol) * np.sign(y[mask])
-
-    if order <= k - 1:
-        val_p = np.zeros(y.shape[0])
-    else:
-        correction = 1.0 if k == 0 else np.sqrt((order + 1.0) * order)
-        P = LegendreP(y, k, order - k) * correction
-
-        val_p = h ** (-0.5 - k) * P
-
-    return val_p
-
-
-def tensor_leg(x, m, h, order):
-    val = shift_leg_derivative(x[:, 0], m[0], h[0], order[0], 0) * \
-          shift_leg_derivative(x[:, 1], m[1], h[1], order[1], 0)
-    return val
-
-
-def gradtensor_leg(x, m, h, order):
-
-    val = np.zeros((x.shape[0], 2))
-
-    shift_leg_der_11 = shift_leg_derivative(x[:, 0], m[0], h[0], order[0], 1)
-    shift_leg_der_12 = shift_leg_derivative(x[:, 1], m[1], h[1], order[1], 0)
-    shift_leg_der_21 = shift_leg_derivative(x[:, 0], m[0], h[0], order[0], 0)
-    shift_leg_der_22 = shift_leg_derivative(x[:, 1], m[1], h[1], order[1], 1)
-
-    val[:, 0] = shift_leg_der_11 * shift_leg_der_12
-    val[:, 1] = shift_leg_der_21 * shift_leg_der_22
-
-    return val
 
 
 def tensor_shift_leg(x, _m, _h, polydegree, correction = None):

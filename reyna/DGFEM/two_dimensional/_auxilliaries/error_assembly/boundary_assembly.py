@@ -2,7 +2,7 @@ import typing
 
 import numpy as np
 
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import tensor_leg
+from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import tensor_tensor_leg
 
 
 def error_bd_face(nodes: np.ndarray,
@@ -29,15 +29,14 @@ def error_bd_face(nodes: np.ndarray,
         Lege_ind: The indecies of the tensored Legendre polynomials required (must match with dg_coefs).
         u_exact: The true solution to the PDE.
         diffusion: The diffusion component to the PDE.
+        element_nodes: the nodes of the element in question.
+        k_area: The area of the element in question.
+        polydegree: The polydegree of the element in question.
         sigma_D: The diffusion penalty parameter.
 
     Returns:
         (float): The DG sub-norm over the boundary facet in question.
     """
-
-    # Calculate the local stiffness matrix
-
-    dim_elem = Lege_ind.shape[0]  # number of basis for each element
 
     # Generate the reference domain quadrature points
     weights, ref_Qpoints = edge_quadrature_rule
@@ -53,17 +52,20 @@ def error_bd_face(nodes: np.ndarray,
     lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
 
     abs_k_b = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes - nodes[0, :]))))
-    c_inv = min(k_area / abs_k_b, polydegree ** 2)
-    sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * c_inv / k_area
+
+    # Assuming p-coverability
+    # c_inv = min(k_area / abs_k_b, polydegree ** 2)
+    # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * c_inv / k_area
+
+    # Assuming lack of p-coverability
+    sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) / abs_k_b
 
     u_val = u_exact(P_Qpoints)
 
     h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
     m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
 
-    tensor_leg_array = np.array([
-        tensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-    ])
+    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, Lege_ind)
 
     u_DG_val = tensor_leg_array.T @ df_coefs
 
@@ -99,8 +101,6 @@ def error_cr_bd_face(nodes: np.ndarray,
         (float): The DG sub-norm over the boundary facet in question.
     """
 
-    dim_elem = Lege_ind.shape[0]  # number of basis for each element
-
     # Generate the reference domain quadrature points
     weights, ref_Qpoints = edge_quadrature_rule
 
@@ -119,13 +119,10 @@ def error_cr_bd_face(nodes: np.ndarray,
     h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
     m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
 
-    tensor_leg_array = np.array([
-        tensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-    ])
+    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, Lege_ind)
 
     u_DG_val = tensor_leg_array.T @ df_coefs
 
-    # Part 3 DG norm error  int_\e  1/2*|b \cdot n |*(u-u_DG)^2 dx
     t = 0.5 * np.abs(np.sum(b_val * n_vec, axis=1)) * (u_val - u_DG_val) ** 2
     dg_subnorm = De * np.dot(t, weights)[0]
 

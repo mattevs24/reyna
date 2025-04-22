@@ -11,7 +11,7 @@ from reyna.DGFEM.two_dimensional._auxilliaries.boundary_information import Bound
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import Basis_index2D
 
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.full_assembly import localstiff, int_localstiff
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import quad_GL, quad_GJ1
+from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import quad_GL, quad_GJ1
 
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.boundary_assembly import local_advection_inflow, local_diffusion_dirichlet
 
@@ -41,11 +41,9 @@ class DGFEM:
         self.dirichlet_bcs = None
 
         self.boundary_information: typing.Optional[BoundaryInformation] = None
-        self.sigma_D = 10 * (self.polydegree + 1) * (self.polydegree + 2)
+        self.sigma_D = 25
 
         # Method Parameters
-
-        self.fekete_integration_degree: int = 2 * polynomial_degree + 1
         self.polynomial_indecies = None
 
         self.dim_elem: typing.Optional[int] = None
@@ -147,7 +145,7 @@ class DGFEM:
 
     def _intialise_quadrature(self):
 
-        quadrature_order = int(np.ceil(0.5 * (self.fekete_integration_degree + 1)))
+        quadrature_order = self.polydegree + 1
         w_x, x = quad_GL(quadrature_order)
         w_y, y = quad_GJ1(quadrature_order)
 
@@ -353,7 +351,7 @@ class DGFEM:
                exact_solution: typing.Callable[[np.ndarray], np.ndarray],
                grad_exact_solution: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
                div_advection: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None
-               ) -> typing.Tuple[float, float, typing.Optional[float]]:
+               ) -> typing.Tuple[float, float, typing.Optional[float], typing.Optional[dict]]:
 
         """
         This function calculates three (semi-) norms associated with the discontinuous Galerkin scheme employed
@@ -369,7 +367,8 @@ class DGFEM:
             This has to take in an array of size (N,2) and return an array which outputs values in a (N,) array.
 
         Returns:
-            (float, float, typing.Optional[float]): The L2 norm, the DG norm and the H1 semi-norm respectively.
+            (float, float, typing.Optional[float], typing.Optional[dict]): The L2 norm, the DG norm,
+            the H1 semi-norm and the dg subnorm dict respectively.
          """
 
         if self.solution is None:
@@ -380,9 +379,11 @@ class DGFEM:
         elif self.advection is None:
             div_advection = lambda x: np.zeros(x.shape[0])
 
-        self.auxilliary_function = lambda x: self.reaction(x) + 0.5 * div_advection(x)
+        auxilliary_function = lambda x: self.reaction(x) + 0.5 * div_advection(x)
 
         l2_error, dg_error, h1_error = 0.0, 0.0, 0.0
+
+        int_dg_error, int_edge_dg_error, boundary_diff_dg_error, boundary_adv_dg_error  = 0.0, 0.0, 0.0, 0.0
 
         for t in range(self.geometry.n_triangles):
             local_triangle = self.geometry.subtriangulation[t, :]
@@ -397,11 +398,13 @@ class DGFEM:
                 exact_solution,
                 self.diffusion,
                 grad_exact_solution,
-                self.auxilliary_function
+                auxilliary_function
             )
 
             l2_error += l2_subnorm
             dg_error += dg_subnorm
+
+            int_dg_error += dg_subnorm
 
             if self.diffusion is not None:
                 h1_error += h1_subnorm
@@ -429,6 +432,7 @@ class DGFEM:
             )
 
             dg_error += dg_subnorm
+            int_edge_dg_error += dg_subnorm
 
         if self.diffusion is not None:
 
@@ -451,6 +455,7 @@ class DGFEM:
                 )
 
                 dg_error += dg_subnorm
+                boundary_diff_dg_error += dg_subnorm
 
         if self.advection is not None:
             # error_cr_bd_face
@@ -470,12 +475,18 @@ class DGFEM:
                 )
 
                 dg_error += dg_subnorm
+                boundary_adv_dg_error += dg_subnorm
 
         l2_error = np.sqrt(l2_error)
         h1_error = np.sqrt(h1_error)
         dg_error = np.sqrt(dg_error)
 
-        if self.diffusion is None:
-            return l2_error, dg_error, None
+        dg_subnorm_dict = {'int': np.sqrt(int_dg_error),
+                           'int_edges': np.sqrt(int_edge_dg_error),
+                           'b_diff': np.sqrt(boundary_diff_dg_error),
+                           'b_adv': np.sqrt(boundary_adv_dg_error)}
 
-        return l2_error, dg_error, h1_error
+        if self.diffusion is None:
+            return l2_error, dg_error, None, None
+
+        return l2_error, dg_error, h1_error, dg_subnorm_dict

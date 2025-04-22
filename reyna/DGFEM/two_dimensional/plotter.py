@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.assembly_aux import tensor_leg
+from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import tensor_tensor_leg
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import Basis_index2D
 
 
@@ -57,9 +57,7 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
             h = 0.5 * np.array([BDbox[1] - BDbox[0], BDbox[3] - BDbox[2]])
             m = 0.5 * np.array([BDbox[1] + BDbox[0], BDbox[3] + BDbox[2]])
 
-            tensor_leg_array = np.array([
-                tensor_leg(node, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-            ])
+            tensor_leg_array = tensor_tensor_leg(node, m, h, Lege_ind)
 
             u_DG_val = tensor_leg_array.T @ coef
 
@@ -80,9 +78,7 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
             h = 0.5 * np.array([BDbox[1] - BDbox[0], BDbox[3] - BDbox[2]])
             m = 0.5 * np.array([BDbox[1] + BDbox[0], BDbox[3] + BDbox[2]])
 
-            tensor_leg_array = np.array([
-                tensor_leg(node, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-            ])
+            tensor_leg_array = tensor_tensor_leg(node, m, h, Lege_ind)
 
             u_DG_val = tensor_leg_array.T @ coef
 
