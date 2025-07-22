@@ -54,11 +54,8 @@ def error_bd_face(nodes: np.ndarray,
     abs_k_b = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes - nodes[0, :]))))
 
     # Assuming p-coverability
-    # c_inv = min(k_area / abs_k_b, polydegree ** 2)
-    # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * c_inv / k_area
-
-    # Assuming lack of p-coverability
-    sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) / abs_k_b
+    c_inv = min(k_area / abs_k_b, polydegree ** 2)
+    sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * c_inv / k_area
 
     u_val = u_exact(P_Qpoints)
 

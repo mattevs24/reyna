@@ -1,6 +1,7 @@
 import typing
 
 import numpy as np
+from numba import njit, float64
 
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import reference_to_physical_t3, \
     tensor_tensor_leg, tensor_gradtensor_leg
@@ -47,16 +48,7 @@ def localstiff(nodes: np.ndarray,
     h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
     m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
 
-    # Generate the tensor Legendre polynomial values
-    # tensor_leg_array = np.array([
-    #     tensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-    # ])
     tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, Lege_ind)
-
-    # gradtensor_leg_array = np.array([
-    #     gradtensor_leg(P_Qpoints, m, h, Lege_ind[i, :]) for i in range(dim_elem)
-    # ])
-
     gradtensor_leg_array = tensor_gradtensor_leg(P_Qpoints, m, h, Lege_ind)
 
     if diffusion is not None:
@@ -126,12 +118,9 @@ def int_localstiff(nodes: np.ndarray,
         abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))
 
         # Assuming p-coverability
-        # c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)
-        # c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
-        # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
-
-        # Assuming lac of p-coverability
-        sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) / min(abs_k_b_1, abs_k_b_2)
+        c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)
+        c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
+        sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
 
         auxiliary_sigma_1 = np.zeros((dim_elem, dim_elem))
         auxiliary_sigma_2 = np.zeros((dim_elem, dim_elem))

@@ -128,13 +128,9 @@ def error_interface(nodes: np.ndarray,
         abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))
 
         # Assuming p-coverability
-        # c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)
-        # c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
-        #
-        # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
-
-        # Assuming lack of p-coverability
-        sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) / min(abs_k_b_1, abs_k_b_2)
+        c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)
+        c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
+        sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
 
         dg_subnorm += sigma * np.dot(t, weights)[0]
 

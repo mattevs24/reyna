@@ -1,6 +1,7 @@
 import importlib_resources as resources
 
 import numpy as np
+from numba import njit, float64, int64
 
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import tensor_LegendreP
 
@@ -32,28 +33,34 @@ def reference_to_physical_t3(t: np.ndarray, ref: np.ndarray):
     return phy
 
 
-def tensor_shift_leg(x, _m, _h, polydegree, correction = None):
-    tol = np.finfo(float).eps
+@njit(float64[:, :](float64[:], float64, float64, int64, float64[:]))
+def tensor_shift_leg(x, _m, _h, polydegree, correction = np.array([np.nan])):
+    tol = 2.220446049250313e-16
     y = (x - _m) / _h
 
     mask = np.abs(y) > 1.0
     y[mask] = (1.0 - tol) * np.sign(y[mask])
-    if correction is None:
+    if np.isnan(correction[0]):
         P = _h ** (-0.5) * tensor_LegendreP(y, 0, polydegree)
+        return P
     else:
-        P = _h ** (-1.5) * tensor_LegendreP(y, 1, polydegree - 1) * correction[:, None]
-        P = np.vstack((np.zeros(x.shape), P))
+        P = _h ** (-1.5) * tensor_LegendreP(y, 1, polydegree - 1) * np.expand_dims(correction, axis=1)
+        new_P = np.empty((P.shape[0] + 1, P.shape[1]))
+        new_P[0, :] = 0.0
+        new_P[1:, :] = P
+        return new_P
 
-    return P
 
+@njit(float64[:, :](float64[:, :], float64[:], float64[:], int64[:, :]))
 def tensor_tensor_leg(x, _m, _h, orders):
     polydegree = np.max(orders)
-    val = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree)[orders[:, 0], :] * \
-        tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree)[orders[:, 1], :]
+    val = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction = np.array([np.nan]))[orders[:, 0], :] * \
+        tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction = np.array([np.nan]))[orders[:, 1], :]
 
     return val
 
 
+@njit(float64[:, :, :](float64[:, :], float64[:], float64[:], int64[:, :]))
 def tensor_gradtensor_leg(x, _m, _h, orders):
 
     val = np.zeros((orders.shape[0], x.shape[0], 2))
@@ -62,8 +69,8 @@ def tensor_gradtensor_leg(x, _m, _h, orders):
 
     shift_leg_der_11 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction)[orders[:, 0], :]
 
-    shift_leg_der_12 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree)[orders[:, 1], :]
-    shift_leg_der_21 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree)[orders[:, 0], :]
+    shift_leg_der_12 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction = np.array([np.nan]))[orders[:, 1], :]
+    shift_leg_der_21 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction = np.array([np.nan]))[orders[:, 0], :]
 
     shift_leg_der_22 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction)[orders[:, 1], :]
 

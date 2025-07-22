@@ -2,6 +2,7 @@ import typing
 import time
 
 import numpy as np
+from numba import njit, float64
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 
@@ -41,7 +42,7 @@ class DGFEM:
         self.dirichlet_bcs = None
 
         self.boundary_information: typing.Optional[BoundaryInformation] = None
-        self.sigma_D = 25
+        self.sigma_D = 10
 
         # Method Parameters
         self.polynomial_indecies = None
@@ -95,11 +96,11 @@ class DGFEM:
             ValueError: If Dirichlet boundary conditions are not present.
         """
 
-        self.advection = advection
-        self.diffusion = diffusion
-        self.reaction = reaction
-        self.forcing = forcing
-        self.dirichlet_bcs = dirichlet_bcs
+        self.advection = njit(float64[:, :](float64[:, :]))(advection) if advection is not None else None
+        self.diffusion = njit(float64[:, :, :](float64[:, :]))(diffusion) if diffusion is not None else None
+        self.reaction = njit(float64[:](float64[:, :]))(reaction) if reaction is not None else None
+        self.forcing = njit(float64[:](float64[:, :]))(forcing) if forcing is not None else None
+        self.dirichlet_bcs = njit(float64[:](float64[:, :]))(dirichlet_bcs) if dirichlet_bcs is not None else None
 
         if self.dirichlet_bcs is None:
             raise ValueError('Must have Dirichlet boundary conditions.')
@@ -351,7 +352,7 @@ class DGFEM:
                exact_solution: typing.Callable[[np.ndarray], np.ndarray],
                grad_exact_solution: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
                div_advection: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None
-               ) -> typing.Tuple[float, float, typing.Optional[float], typing.Optional[dict]]:
+               ) -> typing.Tuple[float, float, typing.Optional[float]]:
 
         """
         This function calculates three (semi-) norms associated with the discontinuous Galerkin scheme employed
@@ -383,8 +384,6 @@ class DGFEM:
 
         l2_error, dg_error, h1_error = 0.0, 0.0, 0.0
 
-        int_dg_error, int_edge_dg_error, boundary_diff_dg_error, boundary_adv_dg_error  = 0.0, 0.0, 0.0, 0.0
-
         for t in range(self.geometry.n_triangles):
             local_triangle = self.geometry.subtriangulation[t, :]
             element_idx = self.geometry.triangle_to_polygon[t]
@@ -403,8 +402,6 @@ class DGFEM:
 
             l2_error += l2_subnorm
             dg_error += dg_subnorm
-
-            int_dg_error += dg_subnorm
 
             if self.diffusion is not None:
                 h1_error += h1_subnorm
@@ -432,7 +429,6 @@ class DGFEM:
             )
 
             dg_error += dg_subnorm
-            int_edge_dg_error += dg_subnorm
 
         if self.diffusion is not None:
 
@@ -455,10 +451,8 @@ class DGFEM:
                 )
 
                 dg_error += dg_subnorm
-                boundary_diff_dg_error += dg_subnorm
 
         if self.advection is not None:
-            # error_cr_bd_face
 
             for t in range(self.geometry.boundary_edges.shape[0]):
                 elem_bdface = self.geometry.boundary_edges_to_element[t]
@@ -475,18 +469,12 @@ class DGFEM:
                 )
 
                 dg_error += dg_subnorm
-                boundary_adv_dg_error += dg_subnorm
 
         l2_error = np.sqrt(l2_error)
         h1_error = np.sqrt(h1_error)
         dg_error = np.sqrt(dg_error)
 
-        dg_subnorm_dict = {'int': np.sqrt(int_dg_error),
-                           'int_edges': np.sqrt(int_edge_dg_error),
-                           'b_diff': np.sqrt(boundary_diff_dg_error),
-                           'b_adv': np.sqrt(boundary_adv_dg_error)}
-
         if self.diffusion is None:
-            return l2_error, dg_error, None, None
+            return l2_error, dg_error, None
 
-        return l2_error, dg_error, h1_error, dg_subnorm_dict
+        return l2_error, dg_error, h1_error
