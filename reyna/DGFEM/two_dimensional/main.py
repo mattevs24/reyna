@@ -2,7 +2,7 @@ import typing
 import time
 
 import numpy as np
-from numba import njit, float64
+from numba import njit, f8
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 
@@ -96,29 +96,36 @@ class DGFEM:
             ValueError: If Dirichlet boundary conditions are not present.
         """
 
-        self.advection = njit(float64[:, :](float64[:, :]))(advection) if advection is not None else None
-        self.diffusion = njit(float64[:, :, :](float64[:, :]))(diffusion) if diffusion is not None else None
-        self.reaction = njit(float64[:](float64[:, :]))(reaction) if reaction is not None else None
-        self.forcing = njit(float64[:](float64[:, :]))(forcing) if forcing is not None else None
-        self.dirichlet_bcs = njit(float64[:](float64[:, :]))(dirichlet_bcs) if dirichlet_bcs is not None else None
+        self.advection = njit(f8[:, :](f8[:, :]))(advection) if advection is not None else None
+        self.diffusion = njit(f8[:, :, :](f8[:, :]))(diffusion) if diffusion is not None else None
+        self.reaction = njit(f8[:](f8[:, :]))(reaction) if reaction is not None else None
+        self.forcing = njit(f8[:](f8[:, :]))(forcing) if forcing is not None else None
+        self.dirichlet_bcs = njit(f8[:](f8[:, :]))(dirichlet_bcs) if dirichlet_bcs is not None else None
 
         if self.dirichlet_bcs is None:
             raise ValueError('Must have Dirichlet boundary conditions.')
 
         self.boundary_information = self._define_boundary_information()
 
-    def dgfem(self, solve=True):
+    def dgfem(self, solve: bool=True, verbose: int = 0):
 
         """
         This is the main method to the class and generates all the stiffness matrices and data vector
         values. It also generates the solution vector to the problem.
+
+        Args:
+            solve: This method generates the linear system associated with the DGFEM solution to the inputted problem.
+            Selecting solve will also solve this linear system.
+            verbose: This is the verbose level of the method. 0 is no verbose, 1 gives the assembly time.
         """
+
+        assert 0 <= verbose <= 1, ValueError('"verbose" must be either 0 or 1.')
 
         # Generate the basic information for the method, shared by all the methods.
         self.polynomial_indecies = Basis_index2D(self.polydegree)
 
-        self.dim_elem = np.shape(self.polynomial_indecies)[0]
-        self.dim_system = self.dim_elem * self.geometry.n_elements
+        self.dim_elem: int = np.shape(self.polynomial_indecies)[0]
+        self.dim_system: int = self.dim_elem * self.geometry.n_elements
 
         _time = time.time()
 
@@ -139,7 +146,8 @@ class DGFEM:
             self.B -= adv_B
             self.L -= adv_f
 
-        print(f"Assembly: {time.time() - _time}")
+        if verbose == 1:
+            print(f"Assembly: {time.time() - _time}")
 
         if solve:
             self.solution = spsolve(self.B, self.L)
@@ -190,6 +198,9 @@ class DGFEM:
         s = np.zeros((self.dim_elem ** 2, self.geometry.n_elements))
 
         s_f = np.zeros(self.dim_system)
+
+        ind_x: np.ndarray
+        ind_y: np.ndarray
 
         ind_x, ind_y = np.meshgrid(np.arange(self.dim_elem), np.arange(self.dim_elem))
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')
@@ -273,6 +284,9 @@ class DGFEM:
 
         s_f = np.zeros((self.dim_system, 1))
 
+        ind_x: np.ndarray
+        ind_y: np.ndarray
+
         ind_x, ind_y = np.meshgrid(np.arange(self.dim_elem), np.arange(self.dim_elem))
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')
 
@@ -319,6 +333,9 @@ class DGFEM:
         s = np.zeros((self.dim_elem ** 2, len(self.boundary_information.inflow_indecies)))
 
         s_f = np.zeros((self.dim_system, 1))
+
+        ind_x: np.ndarray
+        ind_y: np.ndarray
 
         ind_x, ind_y = np.meshgrid(np.arange(self.dim_elem), np.arange(self.dim_elem))
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')

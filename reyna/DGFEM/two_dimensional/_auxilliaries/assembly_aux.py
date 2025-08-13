@@ -1,7 +1,7 @@
 import importlib_resources as resources
 
 import numpy as np
-from numba import njit, float64, int64
+from numba import njit, f8, i8
 
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import tensor_LegendreP
 
@@ -26,14 +26,24 @@ def quad_GJ1(n: int):
     return weights, ref_points
 
 
+@njit(f8[:, :](f8[:, :], f8[:, :]))
 def reference_to_physical_t3(t: np.ndarray, ref: np.ndarray):
 
-    phy = np.dot(np.column_stack([1.0 - ref[:, 0] - ref[:, 1], ref[:, 0], ref[:, 1]]), t)
+    # phy = np.dot(np.column_stack([1.0 - ref[:, 0] - ref[:, 1], ref[:, 0], ref[:, 1]]), t)
+
+    n = ref.shape[0]
+
+    arr = np.zeros((n, 3), dtype=np.float64)
+    arr[:, 0] = 1.0 - ref[:, 0] - ref[:, 1]
+    arr[:, 1] = ref[:, 0]
+    arr[:, 2] = ref[:, 1]
+
+    phy = np.dot(arr, np.ascontiguousarray(t))
 
     return phy
 
 
-@njit(float64[:, :](float64[:], float64, float64, int64, float64[:]))
+@njit(f8[:, :](f8[:], f8, f8, i8, f8[:]))
 def tensor_shift_leg(x, _m, _h, polydegree, correction = np.array([np.nan])):
     tol = 2.220446049250313e-16
     y = (x - _m) / _h
@@ -51,7 +61,7 @@ def tensor_shift_leg(x, _m, _h, polydegree, correction = np.array([np.nan])):
         return new_P
 
 
-@njit(float64[:, :](float64[:, :], float64[:], float64[:], int64[:, :]))
+@njit(f8[:, :](f8[:, :], f8[:], f8[:], i8[:, :]))
 def tensor_tensor_leg(x, _m, _h, orders):
     polydegree = np.max(orders)
     val = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction = np.array([np.nan]))[orders[:, 0], :] * \
@@ -60,7 +70,7 @@ def tensor_tensor_leg(x, _m, _h, orders):
     return val
 
 
-@njit(float64[:, :, :](float64[:, :], float64[:], float64[:], int64[:, :]))
+@njit(f8[:, :, :](f8[:, :], f8[:], f8[:], i8[:, :]))
 def tensor_gradtensor_leg(x, _m, _h, orders):
 
     val = np.zeros((orders.shape[0], x.shape[0], 2))

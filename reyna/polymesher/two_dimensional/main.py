@@ -118,6 +118,8 @@ def _poly_mesher_init_point_set(domain: Domain, **kwargs) -> np.ndarray:
         points = np.full((n_points, 2), -np.inf)
         s = 0
         np.random.seed(1337)
+        # TODO: np.random.seed(1337) <- this causes errors sometimes when activated (785) elements in reyna char
+        # TODO: namely this happens for the polygonal geometries?
         while s < n_points:
             p_1 = (bounding_box[0, 1] - bounding_box[0, 0]) * \
                 np.random.uniform(size=(1, n_points)).T + bounding_box[0, 0]

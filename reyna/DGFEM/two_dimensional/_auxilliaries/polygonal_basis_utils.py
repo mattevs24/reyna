@@ -1,7 +1,7 @@
 from math import gamma
 
 import numpy as np
-from numba import njit, float64, int64, intc
+from numba import njit, f8, i8, intc
 
 
 def Basis_index2D(polydegree: int) -> np.ndarray:
@@ -26,7 +26,7 @@ def Basis_index2D(polydegree: int) -> np.ndarray:
     return FEM_index
 
 
-@njit(float64[:, :](float64[:], intc, int64))
+@njit(f8[:, :](f8[:], intc, i8))
 def tensor_LegendreP(x: np.ndarray, power: int, N: int) -> np.ndarray:
 
     init_array = np.zeros((N + 1, x.shape[0]), dtype=float)

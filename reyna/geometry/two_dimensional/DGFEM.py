@@ -174,31 +174,30 @@ class DGFEMGeometry:
         # OPUNV for edges
 
         bd_tan_vec = self.nodes[self.boundary_edges[:, 0], :] - self.nodes[self.boundary_edges[:, 1], :]
-        int_tan_vec = self.nodes[self.interior_edges[:, 0], :] - self.nodes[self.interior_edges[:, 1], :]
-
         bd_normalisation_consts = np.sqrt(bd_tan_vec[:, 0] ** 2 + bd_tan_vec[:, 1] ** 2)
 
         bd_tan_vec = np.roll(bd_tan_vec, -1, axis=1)
         bd_tan_vec[:, 1] *= -1
         bd_nor_vec = np.divide(bd_tan_vec, bd_normalisation_consts[:, np.newaxis])
 
+        bd_outward = self.nodes[self.boundary_edges[:, 0], :] - \
+                     self.mesh.filtered_points[self.boundary_edges_to_element.flatten(order='F'), :]
+
+        bd_index = np.maximum(np.sum(bd_nor_vec * bd_outward, axis=1), 0)
+        i = np.argwhere(bd_index == 0)
+        bd_nor_vec[i, :] = -bd_nor_vec[i, :]
+
+        int_tan_vec = self.nodes[self.interior_edges[:, 0], :] - self.nodes[self.interior_edges[:, 1], :]
         int_normalisation_consts = np.sqrt(int_tan_vec[:, 0] ** 2 + int_tan_vec[:, 1] ** 2)
 
         int_tan_vec = np.roll(int_tan_vec, -1, axis=1)
         int_tan_vec[:, 1] *= -1
         int_nor_vec = np.divide(int_tan_vec, int_normalisation_consts[:, np.newaxis])
 
-        bd_outward = self.nodes[self.boundary_edges[:, 0], :] - \
-            self.mesh.filtered_points[self.boundary_edges_to_element.flatten(order="F"), :]
-
         int_outward = self.mesh.filtered_points[self.interior_edges_to_element[:, 1], :] - \
             self.mesh.filtered_points[self.interior_edges_to_element[:, 0], :]
 
-        bd_index = np.maximum(np.sum(bd_nor_vec * bd_outward, axis=1), 0)
         int_index = np.sum(int_nor_vec * int_outward, axis=1) < 0.0
-
-        i = np.argwhere(bd_index == 0)
-        bd_nor_vec[i, :] = -bd_nor_vec[i, :]
         int_nor_vec[int_index, :] = -int_nor_vec[int_index, :]
 
         self.boundary_normals = bd_nor_vec

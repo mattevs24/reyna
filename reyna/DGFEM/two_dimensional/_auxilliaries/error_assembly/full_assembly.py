@@ -122,7 +122,7 @@ def error_interface(nodes: np.ndarray,
     dg_subnorm: float = 0.0
 
     if diffusion is not None:
-        lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
+        lambda_dot = normal @ diffusion(mid).squeeze() @ normal
 
         abs_k_b_1 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_1 - nodes[0, :]))))
         abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))

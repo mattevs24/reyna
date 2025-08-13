@@ -1,12 +1,14 @@
 import typing
 
 import numpy as np
-from numba import njit, float64
+# from numba import njit, f8, i8, optional
+# from numba.core.types.containers import Tuple
 
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import reference_to_physical_t3, \
     tensor_tensor_leg, tensor_gradtensor_leg
 
 
+# @njit(Tuple((f8[:, :], f8[:, :]))(f8[:, :], f8[:], Tuple((f8[:], f8[:, :])), i8[:, :], f8[:, :, :](f8[:, :]), f8[:, :](f8[:, :]), f8[:](f8[:, :]), f8[:](f8[:, :])))
 def localstiff(nodes: np.ndarray,
                bounding_box: np.ndarray,
                element_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
@@ -111,8 +113,9 @@ def int_localstiff(nodes: np.ndarray,
     z = np.zeros((2 * dim_elem, 2 * dim_elem))
 
     if diffusion is not None:
+
         # penalty term
-        lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
+        lambda_dot = normal @ diffusion(mid).squeeze() @ normal
 
         abs_k_b_1 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_1 - nodes[0, :]))))
         abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))

@@ -49,7 +49,7 @@ def error_bd_face(nodes: np.ndarray,
     De = np.linalg.norm(tanvec)
 
     # penalty term
-    lambda_dot = normal @ diffusion(mid[None, :]).squeeze() @ normal
+    lambda_dot = normal @ diffusion(mid).squeeze() @ normal
 
     abs_k_b = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes - nodes[0, :]))))
 

@@ -87,7 +87,16 @@ from plotter import plot_DG
 
 # Section: diffusion testing
 
-diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)
+# diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)
+
+def diffusion(x):
+    out = np.zeros((x.shape[0], 2, 2), dtype=np.float64)
+    for i in range(x.shape[0]):
+        out[i, 0, 0] = 1.0
+        out[i, 1, 1] = 1.0
+    return out
+
+
 reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
 forcing = lambda x: 3.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 
@@ -115,6 +124,8 @@ int_edges_norms_dict = {}
 b_diff_norms_dict = {}
 b_adv_norms_dict = {}
 
+assembly_time_dict = {}
+
 for p in [1, 2, 3]:
 
     h_s = []
@@ -127,6 +138,8 @@ for p in [1, 2, 3]:
     int_edges_norms = []
     b_diff_norms = []
     b_adv_norms = []
+
+    assembly_times = []
 
     for n_r in n_elements:
 
@@ -142,7 +155,12 @@ for p in [1, 2, 3]:
             dirichlet_bcs=solution,
             forcing=forcing
         )
+
+        _time = time.time()
+
         dg.dgfem(solve=True)
+
+        assembly_times.append(time.time() - _time)
 
         # plot_DG(dg.solution, geometry, dg.polydegree)
 
@@ -158,6 +176,9 @@ for p in [1, 2, 3]:
     dg_norms_dict[p] = dg_norms
     l2_norms_dict[p] = l2_norms
     h1_norms_dict[p] = h1_norms
+
+    assembly_time_dict[p] = assembly_times
+
 
 x_ = np.linspace(0.03, 0.3, 100)
 
@@ -198,6 +219,18 @@ axes[2].set_xscale('log')
 axes[2].set_yscale('log')
 
 plt.show()
+plt.close()
+
+
+plt.plot(n_elements, assembly_time_dict[1])
+plt.plot(n_elements, assembly_time_dict[1])
+plt.plot(n_elements, assembly_time_dict[1])
+
+plt.xlabel('Number of elements')
+plt.ylabel('Assembly time')
+
+plt.show()
+
 
 # Section: diffusion-advection-reaction
 
