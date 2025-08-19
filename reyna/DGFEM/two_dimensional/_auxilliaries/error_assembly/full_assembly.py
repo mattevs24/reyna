@@ -16,11 +16,7 @@ def error_element(nodes: np.ndarray,
                   grad_u_exact: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
                   auxilliary_function: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None):
 
-    if (diffusion is None) != (grad_u_exact is None):
-        raise ValueError('Need to input both or neither "diffusion" and "grad_u_exact".')
-
-    if auxilliary_function is None:
-        auxilliary_function = lambda x: 0.0
+    # TODO: format this the same as the other assembly code -- paramter names and how the code/inputs are ordered.
 
     weights, ref_points = element_quadrature_rule
     B = 0.5 * np.vstack((nodes[1, :] - nodes[0, :], nodes[2, :] - nodes[0, :]))

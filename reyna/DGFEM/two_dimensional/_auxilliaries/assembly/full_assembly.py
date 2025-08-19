@@ -49,9 +49,8 @@ def localstiff(nodes: np.ndarray,
     dim_elem = orders.shape[0]
     z = np.zeros((dim_elem, dim_elem))  # pre-allocate space to save repeated calculations
 
-    # TODO: are lists faster in this context?
-    h = [0.5 * (bounding_box[1] - bounding_box[0]), 0.5 * (bounding_box[3] - bounding_box[2])]
-    m = [0.5 * (bounding_box[1] + bounding_box[0]), 0.5 * (bounding_box[3] + bounding_box[2])]
+    h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
+    m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
 
     tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, orders)
     gradtensor_leg_array = tensor_gradtensor_leg(P_Qpoints, m, h, orders)
@@ -127,10 +126,10 @@ def int_localstiff(nodes: np.ndarray,
     z = np.zeros((2 * dim_elem, 2 * dim_elem))  # pre-allocate space to save repeated calculations
 
     # Information for two bounding box 1,2 n is the normal vector from k1 to k2
-    h1 = [0.5 * (bounding_box1[1] - bounding_box1[0]), 0.5 * (bounding_box1[3] - bounding_box1[2])]
-    m1 = [0.5 * (bounding_box1[1] + bounding_box1[0]), 0.5 * (bounding_box1[3] + bounding_box1[2])]
-    h2 = [0.5 * (bounding_box2[1] - bounding_box2[0]), 0.5 * (bounding_box2[3] - bounding_box2[2])]
-    m2 = [0.5 * (bounding_box2[1] + bounding_box2[0]), 0.5 * (bounding_box2[3] + bounding_box2[2])]
+    h1 = 0.5 * np.array([bounding_box1[1] - bounding_box1[0], bounding_box1[3] - bounding_box1[2]])
+    m1 = 0.5 * np.array([bounding_box1[1] + bounding_box1[0], bounding_box1[3] + bounding_box1[2]])
+    h2 = 0.5 * np.array([bounding_box2[1] - bounding_box2[0], bounding_box2[3] - bounding_box2[2]])
+    m2 = 0.5 * np.array([bounding_box2[1] + bounding_box2[0], bounding_box2[3] + bounding_box2[2]])
 
     tensor_leg_array = np.stack(
         (tensor_tensor_leg(P_Qpoints, m1, h1, orders),

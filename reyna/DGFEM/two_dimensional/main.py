@@ -6,15 +6,18 @@ from numba import njit, f8
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 
+from numpy.polynomial.legendre import leggauss
+from scipy.special import roots_jacobi
+
 from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
 from reyna.DGFEM.two_dimensional._auxilliaries.boundary_information import BoundaryInformation
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import Basis_index2D
 
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.full_assembly import localstiff, int_localstiff
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import quad_GL, quad_GJ1
 
-from reyna.DGFEM.two_dimensional._auxilliaries.assembly.boundary_assembly import local_advection_inflow, local_diffusion_dirichlet
+from reyna.DGFEM.two_dimensional._auxilliaries.assembly.boundary_assembly import (local_advection_inflow,
+                                                                                  local_diffusion_dirichlet)
 
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.boundary_assembly import error_bd_face, error_cr_bd_face
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.full_assembly import error_element, error_interface
@@ -114,15 +117,19 @@ class DGFEM:
         values. It also generates the solution vector to the problem.
 
         Args:
-            solve: This method generates the linear system associated with the DGFEM solution to the inputted problem.
-            Selecting solve will also solve this linear system.
-            verbose: This is the verbose level of the method. 0 is no verbose, 1 gives the assembly time.
+            solve (bool): This method generates the linear system associated with the DGFEM solution to the inputted
+            problem. Selecting solve will also solve this linear system.
+            verbose (int) : This is the verbose level of the method. 0 is no verbose, 1 gives the assembly time.
+
+        Raises:
+            ValueError: If the parameter 'verbose' is not contained in the right interval.
+
         """
 
         assert 0 <= verbose <= 1, ValueError('"verbose" must be either 0 or 1.')
 
         # Generate the basic information for the method, shared by all the methods.
-        self.polynomial_indecies = Basis_index2D(self.polydegree)
+        self.polynomial_indecies = Basis_index2D(self.polydegree)  # Legendre polynomial orders
 
         self.dim_elem: int = np.shape(self.polynomial_indecies)[0]
         self.dim_system: int = self.dim_elem * self.geometry.n_elements
@@ -155,36 +162,36 @@ class DGFEM:
     def _intialise_quadrature(self):
 
         quadrature_order = self.polydegree + 1
-        w_x, x = quad_GL(quadrature_order)
-        w_y, y = quad_GJ1(quadrature_order)
+
+        x, w_x = leggauss(quadrature_order)
+        y, w_y = roots_jacobi(quadrature_order, 1, 0)
 
         quad_x = np.reshape(np.repeat(x, w_y.shape[0]), (-1, 1))
         quad_y = np.reshape(np.tile(y, w_x.shape[0]), (-1, 1), order='F')
         weights = (w_x[:, None] * w_y).flatten().reshape(-1, 1)
 
-        # The duffy points and the reference triangle points.
+        # Duffy transform to the reference triangle points
         shiftpoints = np.hstack((0.5 * (1.0 + quad_x) * (1.0 - quad_y) - 1.0, quad_y))
         ref_points = 0.5 * shiftpoints + 0.5
 
+        # TODO: run through where these functions are used and fix the awkward [:, None] parts on them to avoid this
+
         self.element_reference_quadrature = (weights, ref_points)
-        self.edge_reference_quadrature = (w_x, x)
+        self.edge_reference_quadrature = (w_x[:, None], x[:, None])
 
     def _define_boundary_information(self, **kwargs) -> BoundaryInformation:
         """
-        This method splits the boundary into the component pieces to which the Dirichlet and Neumann boundary conditions
-        are applied. This generates both the elliptic Dirishlet and Neumann boundary as well as the hyperbolic inflow
-        and outflow information.
+        This method splits the boundary into the component pieces to which the Dirichlet boundary conditions are
+        applied. This generates the elliptic Dirichlet boundary as well as the hyperbolic inflow and outflow
+        information. For now this code assumes that the Hausdorff measure of the Neumann boundary is 0 and hence we may
+        only consider the elliptical dirichlet portion of the boundary
 
         Returns:
-            BoundaryInformation: An object containing all the relavent information.
+            BoundaryInformation: An object containing all the relavent boundary information.
         """
-
-        # For now this code assumes that the Hausdorff measure of the Neumann boundary is 0 and hence
-        # we may only consider the elliptical dirichlet portion of the boundary
 
         boundary_information = BoundaryInformation(**kwargs)
         boundary_information.split_boundaries(self.geometry, self.advection, self.diffusion)
-        # boundary_information.plot_boundaries(self.geometry)
 
         return boundary_information
 
@@ -387,11 +394,20 @@ class DGFEM:
         Returns:
             (float, float, typing.Optional[float], typing.Optional[dict]): The L2 norm, the DG norm,
             the H1 semi-norm and the dg subnorm dict respectively.
-         """
+
+        Raises:
+              ValueError: If the 'solution' property is not filled before running.
+              ValueError: If self.diffusion and the parameter 'grad_exact_solution' are not both fulled or empty.
+
+        """
 
         if self.solution is None:
             raise ValueError('Need to run the .dgfem() method to generate a solution before calculating an error.')
 
+        if (self.diffusion is None) != (grad_exact_solution is None):
+            raise ValueError('Need to input both or neither "diffusion" and "grad_u_exact".')
+
+        # Input validation/cleaning
         if self.reaction is None:
             self.reaction = lambda x: np.zeros(x.shape[0])
         elif self.advection is None:

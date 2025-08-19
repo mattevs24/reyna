@@ -1,27 +1,7 @@
 import numpy as np
 from numba import njit, f8, i8
 
-from numpy.polynomial.legendre import leggauss
-from scipy.special import roots_jacobi
-
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import tensor_LegendreP
-
-
-# TODO: run through where these functions are used and fix the awkward [:, None] parts on them to avoid this
-# TODO: can merge this into the main dgfem class
-
-def quad_GL(n: int):
-
-    ref_points, weights = leggauss(n)
-
-    return weights[:, None], ref_points[:, None]
-
-
-def quad_GJ1(n: int):
-
-    ref_points, weights = roots_jacobi(n, 1, 0)
-
-    return weights[:, None], ref_points[:, None]
 
 
 @njit(f8[:, :](f8[:, :], f8[:, :]))
@@ -87,15 +67,15 @@ def tensor_shift_leg(x: np.ndarray, _m: float, _h: float, polydegree: int, corre
 
 
 @njit(f8[:, :](f8[:, :], f8[:], f8[:], i8[:, :]))
-def tensor_tensor_leg(x: np.ndarray, _m: list, _h: list, orders: np.ndarray) -> np.ndarray:
+def tensor_tensor_leg(x: np.ndarray, _m: np.ndarray, _h: np.ndarray, orders: np.ndarray) -> np.ndarray:
     """
     This function generates the values for the tensor-legendre polynomials. It takes the values from each cartesian
     dimension and multiplies. This is a tensor function and vectorises the point-wise calculations.
 
     Args:
         x (np.ndarray): The points in which the tensor-lengendre polynomials are evaluated of shape (M, 2)
-        _m (list): The midpoint of the cartesian bounding box for the element.
-        _h (list): The half-extent of the cartesian bounding box for the element.
+        _m (np.ndarray): The midpoint of the cartesian bounding box for the element.
+        _h (np.ndarray): The half-extent of the cartesian bounding box for the element.
         orders (np.ndarray): The orders of the tensor-lengendre polynomials for each direction: needs to be an integer
         array of shape (N, 2). For orders[:, 0], the corresponding tensor-lengendre polynomial is
         L_{orders[0, 0]}(x)L_{orders[0, 1]}(y).
@@ -113,13 +93,13 @@ def tensor_tensor_leg(x: np.ndarray, _m: list, _h: list, orders: np.ndarray) -> 
 
 
 @njit(f8[:, :, :](f8[:, :], f8[:], f8[:], i8[:, :]))
-def tensor_gradtensor_leg(x: np.ndarray, _m: list, _h: list, orders: np.ndarray) -> np.ndarray:
+def tensor_gradtensor_leg(x: np.ndarray, _m: np.ndarray, _h: np.ndarray, orders: np.ndarray) -> np.ndarray:
     """
     Thie function takes a set of input points and returns the evaluated gradients of the tensor-lengendre polynomials.
     Args:
         x (np.ndarray): The points in which the tensor-lengendre polynomials are evaluated of shape (M, 2)
-        _m (list): The midpoint of the cartesian bounding box for the element.
-        _h (list): The half-extent of the cartesian bounding box for the element.
+        _m (np.ndarray): The midpoint of the cartesian bounding box for the element.
+        _h (np.ndarray): The half-extent of the cartesian bounding box for the element.
         orders (np.ndarray): The orders of the tensor-lengendre polynomials for each direction: needs to be an integer
         array of shape (N, 2). For orders[:, 0], the corresponding gradient tensor-lengendre polynomial is
         [L_{orders[0, 0]}'(x)L_{orders[0, 1]}(y), L_{orders[0, 0]}(x)L_{orders[0, 1]}'(y)].
