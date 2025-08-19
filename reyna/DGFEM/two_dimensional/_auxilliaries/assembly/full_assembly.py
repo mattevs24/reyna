@@ -12,46 +12,49 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import reference_to_
 def localstiff(nodes: np.ndarray,
                bounding_box: np.ndarray,
                element_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
-               Lege_ind: np.ndarray,
+               orders: np.ndarray,
                diffusion: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]],
                advection: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]],
                reaction: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]],
                forcing: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]):
     """
-    This function calculates the local stiffness matrix associated to the diffusion component of the PDE.
+    This function calculates the local stiffness matrix associated to the diffusion component of the PDE. The
+    requirements on the shapes of the coefficient functions are in the DGFEM class .add_data method.
 
     Args:
-        nodes: The vertices of the triangle in question
-        bounding_box: The bounding box for the element in question
-        element_quadrature_rule: The quadrature rule for the triangle in question
-        Lege_ind: The indecies of the associated monomials
-        diffusion: The diffusion function
-        advection: The advection function
-        reaction: The reaction function
-        forcing: The forcing function
+        nodes (np.ndarray): The vertices of the triangle in question
+        bounding_box (np.ndarray): The bounding box for the element in question
+        element_quadrature_rule (typing.Tuple[np.ndarray, np.ndarray]): The quadrature rule for the triangle in question
+        in the format (weights, reference points).
+        orders (np.ndarray): The orders of the associated tensor-Legendre polynomials
+        diffusion (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The diffusion function
+        advection (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The advection function
+        reaction (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The reaction function
+        forcing (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The forcing function
+
     Returns:
-        (np.ndarray): Local stiffness matrix. Note that this stiffness matrix is in terms of the
-        standard monomial basis and will be mapped to the Legendre polynomial space via a projection operator
+        np.ndarray: Local stiffness matrix.
     """
 
-    weights, ref_points = element_quadrature_rule
-    # Jacobian calculation
+    weights, ref_points = element_quadrature_rule  # Call in the element quadrature rule
+
+    # Jacobian calculation -- area of triangle
     B = 0.5 * np.vstack((nodes[1, :] - nodes[0, :], nodes[2, :] - nodes[0, :]))
     De_tri = np.abs(np.linalg.det(B))
 
     weights = De_tri * weights
 
-    # The physical points
-    P_Qpoints = reference_to_physical_t3(nodes, ref_points)
+    P_Qpoints = reference_to_physical_t3(nodes, ref_points)  # map reference to physical points
 
-    dim_elem = Lege_ind.shape[0]  # Number of basis for each element
-    z = np.zeros((dim_elem, dim_elem))
+    dim_elem = orders.shape[0]
+    z = np.zeros((dim_elem, dim_elem))  # pre-allocate space to save repeated calculations
 
-    h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
-    m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
+    # TODO: are lists faster in this context?
+    h = [0.5 * (bounding_box[1] - bounding_box[0]), 0.5 * (bounding_box[3] - bounding_box[2])]
+    m = [0.5 * (bounding_box[1] + bounding_box[0]), 0.5 * (bounding_box[3] + bounding_box[2])]
 
-    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, Lege_ind)
-    gradtensor_leg_array = tensor_gradtensor_leg(P_Qpoints, m, h, Lege_ind)
+    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, orders)
+    gradtensor_leg_array = tensor_gradtensor_leg(P_Qpoints, m, h, orders)
 
     if diffusion is not None:
         a_val = diffusion(P_Qpoints)
@@ -78,44 +81,65 @@ def localstiff(nodes: np.ndarray,
 
 
 def int_localstiff(nodes: np.ndarray,
-                   BDbox1: np.ndarray, BDbox2: np.ndarray,
+                   bounding_box1: np.ndarray, bounding_box2: np.ndarray,
                    edge_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
-                   Lege_ind: np.ndarray,
+                   orders: np.ndarray,
                    element_nodes_1: np.ndarray, element_nodes_2: np.ndarray,
-                   k_1_area: float, k_2_area: float, polydegree: float,
+                   k_1_area: float, k_2_area: float, polydegree: int,
                    sigma_D: float,
                    normal: np.ndarray,
-                   diffusion: typing.Callable[[np.ndarray], np.ndarray],
-                   advection: typing.Callable[[np.ndarray], np.ndarray]):
+                   diffusion: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]],
+                   advection: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]) -> np.ndarray:
+    """
+    This function calculates the local stiffness matrix contributions from a given interior edge of the mesh.
 
-    # Information for two bounding box 1,2 n is the normal vector from k1 to k2
-    h1 = 0.5 * np.array([BDbox1[1] - BDbox1[0], BDbox1[3] - BDbox1[2]])
-    m1 = 0.5 * np.array([BDbox1[1] + BDbox1[0], BDbox1[3] + BDbox1[2]])
-    h2 = 0.5 * np.array([BDbox2[1] - BDbox2[0], BDbox2[3] - BDbox2[2]])
-    m2 = 0.5 * np.array([BDbox2[1] + BDbox2[0], BDbox2[3] + BDbox2[2]])
+    Args:
+        nodes (np.ndarray): The vertices of the edge in question.
+        bounding_box1 (np.ndarray): The bounding box for the first element in question.
+        bounding_box2 (np.ndarray): The bounding box for the second element in question.
+        edge_quadrature_rule (typing.Tuple[np.ndarray, np.ndarray]): The quadrature rule for the edge in question.
+        orders (np.ndarray): The orders of the associated tensor-Legendre polynomials.
+        element_nodes_1 (np.ndarray): The vertices of the first element in question.
+        element_nodes_2 (np.ndarray): The vertices of the second element in question.
+        k_1_area (float): The area of the first element in question.
+        k_2_area (float): The area of the second element in question.
+        polydegree (int): The max degree of Legendre polynomial used (this is used for the interior penalty terms).
+        sigma_D (float): The global penalisation parameter.
+        normal (np.ndarray): The normal vector of the edge. The direction is pre-determined.
+        diffusion (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The diffusion function
+        advection (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The advection function
 
-    dim_elem = Lege_ind.shape[0]  # number of basis for each element
+    Returns:
+        np.ndarray: The local stiffness matrix corresponding to both elements and both directions.
+    """
 
     # Generating quadrature points and weights
     weights, ref_Qpoints = edge_quadrature_rule
 
-    # Change the quadrature nodes from reference domain to physical domain
-    mid = np.mean(nodes, axis=0, keepdims=True)
+    # Convert reference to physical quadrature points and calculate length value, De, and midpoint, mid_point
+    mid_point = np.mean(nodes, axis=0, keepdims=True)
     tanvec = 0.5 * (nodes[1, :] - nodes[0, :])
-    C = mid.repeat(ref_Qpoints.shape[0], axis=0)
+    C = mid_point.repeat(ref_Qpoints.shape[0], axis=0)
     P_Qpoints = ref_Qpoints @ tanvec[:, None].T + C
     De = np.linalg.norm(tanvec)
 
-    tensor_leg_array = np.stack(
-        (tensor_tensor_leg(P_Qpoints, m1, h1, Lege_ind),
-         tensor_tensor_leg(P_Qpoints, m2, h2, Lege_ind)), axis=1)
+    dim_elem = orders.shape[0]
+    z = np.zeros((2 * dim_elem, 2 * dim_elem))  # pre-allocate space to save repeated calculations
 
-    z = np.zeros((2 * dim_elem, 2 * dim_elem))
+    # Information for two bounding box 1,2 n is the normal vector from k1 to k2
+    h1 = [0.5 * (bounding_box1[1] - bounding_box1[0]), 0.5 * (bounding_box1[3] - bounding_box1[2])]
+    m1 = [0.5 * (bounding_box1[1] + bounding_box1[0]), 0.5 * (bounding_box1[3] + bounding_box1[2])]
+    h2 = [0.5 * (bounding_box2[1] - bounding_box2[0]), 0.5 * (bounding_box2[3] - bounding_box2[2])]
+    m2 = [0.5 * (bounding_box2[1] + bounding_box2[0]), 0.5 * (bounding_box2[3] + bounding_box2[2])]
+
+    tensor_leg_array = np.stack(
+        (tensor_tensor_leg(P_Qpoints, m1, h1, orders),
+         tensor_tensor_leg(P_Qpoints, m2, h2, orders)), axis=1)
 
     if diffusion is not None:
 
         # penalty term
-        lambda_dot = normal @ diffusion(mid).squeeze() @ normal
+        lambda_dot = normal @ diffusion(mid_point).squeeze() @ normal
 
         abs_k_b_1 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_1 - nodes[0, :]))))
         abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))
@@ -128,19 +152,21 @@ def int_localstiff(nodes: np.ndarray,
         # Assuming not p-coverable
         # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(1.0 / abs_k_b_1, 1.0 / abs_k_b_2)
 
-        auxiliary_sigma_1 = np.zeros((dim_elem, dim_elem), dtype=np.float64)
+        auxiliary_sigma_1 = np.zeros((dim_elem, dim_elem), dtype=np.float64)  # pre-allocate space for stiffness mats
         auxiliary_sigma_2 = np.zeros((dim_elem, dim_elem), dtype=np.float64)
         auxiliary_sigma_3 = np.zeros((dim_elem, dim_elem), dtype=np.float64)
         auxiliary_sigma_4 = np.zeros((dim_elem, dim_elem), dtype=np.float64)
 
         gradtensor_leg_array = np.stack(
-            (tensor_gradtensor_leg(P_Qpoints, m1, h1, Lege_ind),
-             tensor_gradtensor_leg(P_Qpoints, m2, h2, Lege_ind)), axis=1)
+            (tensor_gradtensor_leg(P_Qpoints, m1, h1, orders),
+             tensor_gradtensor_leg(P_Qpoints, m2, h2, orders)), axis=1)
 
         a_val = diffusion(P_Qpoints)
 
         a_gradx_array = np.einsum('ijk,nij -> nij', a_val, gradtensor_leg_array[:, 0])
         a_grady_array = np.einsum('ijk,nij -> nij', a_val, gradtensor_leg_array[:, 1])
+
+        # TODO: vectorise this here -- there is too much going on here to be funny
 
         for i in range(dim_elem):
 
@@ -167,7 +193,7 @@ def int_localstiff(nodes: np.ndarray,
                 t4 = 0.5 * (-a_grady_array[i, ...] * V2 - a_grady_array[j, ...] * U2) @ normal[:, None]
                 auxiliary_sigma_4[j, i] = np.dot((s4 + t4).T, weights)
 
-        # term may be symmtric or skew-symmetric
+        # term may be symmetric or skew-symmetric -- account for this here
         local_1 = auxiliary_sigma_1 + np.tril(auxiliary_sigma_1, -1).T  # U1, V1
         local_2 = auxiliary_sigma_2 + np.tril(auxiliary_sigma_3, -1).T  # U2, V1
         local_3 = auxiliary_sigma_3 + np.tril(auxiliary_sigma_2, -1).T  # U1, V2
@@ -176,8 +202,9 @@ def int_localstiff(nodes: np.ndarray,
         z -= np.vstack((np.hstack((local_1.T, local_3.T)), np.hstack((local_2.T, local_4.T))))
 
     if advection is not None:
+
         # Correct the normal vector's direction if required.
-        correction = np.sum(advection(mid).flatten() * normal) >= 1e-12
+        correction = np.sum(advection(mid_point).flatten() * normal) >= 1e-12
         b_dot_n = np.sum(advection(P_Qpoints) * normal[None, :], axis=1)
 
         if correction:

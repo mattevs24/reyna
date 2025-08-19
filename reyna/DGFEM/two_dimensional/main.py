@@ -397,7 +397,6 @@ class DGFEM:
         elif self.advection is None:
             div_advection = lambda x: np.zeros(x.shape[0])
 
-        # TODO: corrected this to be the negative version.....
         auxilliary_function = lambda x: self.reaction(x) - 0.5 * div_advection(x)
 
         l2_error, dg_error, h1_error = 0.0, 0.0, 0.0
