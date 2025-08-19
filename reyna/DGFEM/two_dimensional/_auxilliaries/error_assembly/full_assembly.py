@@ -132,6 +132,9 @@ def error_interface(nodes: np.ndarray,
         c_inv_2 = min(k_2_area / abs_k_b_2, polydegree ** 2)
         sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(c_inv_1 / k_1_area, c_inv_2 / k_2_area)
 
+        # Assuming not p-coverable
+        # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(1.0 / abs_k_b_1, 1.0 / abs_k_b_2)
+
         dg_subnorm += sigma * np.dot(t, weights)[0]
 
     if advection is not None:

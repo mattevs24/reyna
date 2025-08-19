@@ -1,35 +1,41 @@
-import importlib_resources as resources
-
 import numpy as np
 from numba import njit, f8, i8
+
+from numpy.polynomial.legendre import leggauss
+from scipy.special import roots_jacobi
 
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import tensor_LegendreP
 
 
+# TODO: run through where these functions are used and fix the awkward [:, None] parts on them to avoid this
+# TODO: can merge this into the main dgfem class
+
 def quad_GL(n: int):
 
-    file_path = str(resources.files('reyna._data.quadratures').joinpath(f"array_GL_{int(n)}"))
-    data = np.atleast_2d(np.loadtxt(file_path, delimiter=","))
-    ref_points = data[:, :1]
-    weights = data[:, 1:]
+    ref_points, weights = leggauss(n)
 
-    return weights, ref_points
+    return weights[:, None], ref_points[:, None]
 
 
 def quad_GJ1(n: int):
 
-    file_path = str(resources.files('reyna._data.quadratures').joinpath(f"array_GJ1_{int(n)}"))
-    data = np.atleast_2d(np.loadtxt(file_path, delimiter=","))
-    ref_points = data[:, :1]
-    weights = data[:, 1:]
+    ref_points, weights = roots_jacobi(n, 1, 0)
 
-    return weights, ref_points
+    return weights[:, None], ref_points[:, None]
 
 
 @njit(f8[:, :](f8[:, :], f8[:, :]))
-def reference_to_physical_t3(t: np.ndarray, ref: np.ndarray):
-
-    # phy = np.dot(np.column_stack([1.0 - ref[:, 0] - ref[:, 1], ref[:, 0], ref[:, 1]]), t)
+def reference_to_physical_t3(t: np.ndarray, ref: np.ndarray) -> np.ndarray:
+    """
+    This function takes a set of vertices of a triangle and a reference set of quadrature points and maps these points
+    to the triangle.
+    Args:
+        t (np.ndarray): The vertices of the triangle in an array with shape (3, 2).
+        ref (np.ndarray): The reference quadrature points in an array with shape (N, 2) where N varies with the
+        precision of the quadrature rule in question.
+    Returns:
+        np.ndarray: The mapped reference points in an array of shape (N, 2).
+    """
 
     n = ref.shape[0]
 
@@ -44,16 +50,35 @@ def reference_to_physical_t3(t: np.ndarray, ref: np.ndarray):
 
 
 @njit(f8[:, :](f8[:], f8, f8, i8, f8[:]))
-def tensor_shift_leg(x, _m, _h, polydegree, correction = np.array([np.nan])):
+def tensor_shift_leg(x: np.ndarray, _m: float, _h: float, polydegree: int, correction=np.array([np.nan])) -> np.ndarray:
+    """
+    This function generates the legendre polynomial values at a given set of 1D input points. This is coupled with
+    the midpoint and half-extent values (along a given dimension) to tailor the function to the bounding box in
+    question. The correction term is added to calculate the gradient terms.
+
+    Args:
+        x (np.ndarray): The quadrature points for a given element/facet.
+        _m (float): The midpoint of the corresponding element.
+        _h (float): The half-extents of the corresponding element
+        polydegree (int): The highest total polynomial power.
+        correction (np.ndarray): The corerction term for differentiation.
+
+    Returns:
+        np.ndarray: A numpy array containing the tensor legendre polynomial values.
+    """
+
     tol = 2.220446049250313e-16
-    y = (x - _m) / _h
+    y = (x - _m) / _h  # Recentre points
 
     mask = np.abs(y) > 1.0
-    y[mask] = (1.0 - tol) * np.sign(y[mask])
+    y[mask] = (1.0 - tol) * np.sign(y[mask])  # Reset points to within the reference element -- precaution
+
     if np.isnan(correction[0]):
+        # No derivatives required
         P = _h ** (-0.5) * tensor_LegendreP(y, 0, polydegree)
         return P
     else:
+        # Derivatives required -- correction required.
         P = _h ** (-1.5) * tensor_LegendreP(y, 1, polydegree - 1) * np.expand_dims(correction, axis=1)
         new_P = np.empty((P.shape[0] + 1, P.shape[1]))
         new_P[0, :] = 0.0
@@ -62,54 +87,60 @@ def tensor_shift_leg(x, _m, _h, polydegree, correction = np.array([np.nan])):
 
 
 @njit(f8[:, :](f8[:, :], f8[:], f8[:], i8[:, :]))
-def tensor_tensor_leg(x, _m, _h, orders):
+def tensor_tensor_leg(x: np.ndarray, _m: list, _h: list, orders: np.ndarray) -> np.ndarray:
+    """
+    This function generates the values for the tensor-legendre polynomials. It takes the values from each cartesian
+    dimension and multiplies. This is a tensor function and vectorises the point-wise calculations.
+
+    Args:
+        x (np.ndarray): The points in which the tensor-lengendre polynomials are evaluated of shape (M, 2)
+        _m (list): The midpoint of the cartesian bounding box for the element.
+        _h (list): The half-extent of the cartesian bounding box for the element.
+        orders (np.ndarray): The orders of the tensor-lengendre polynomials for each direction: needs to be an integer
+        array of shape (N, 2). For orders[:, 0], the corresponding tensor-lengendre polynomial is
+        L_{orders[0, 0]}(x)L_{orders[0, 1]}(y).
+
+    Returns:
+        np.ndarray: The tensor-lengendre polynomial values at the given points. This will be of the shape (N, M).
+
+    """
+
     polydegree = np.max(orders)
-    val = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction = np.array([np.nan]))[orders[:, 0], :] * \
-        tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction = np.array([np.nan]))[orders[:, 1], :]
+    val = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction=np.array([np.nan]))[orders[:, 0], :] * \
+        tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction=np.array([np.nan]))[orders[:, 1], :]
 
     return val
 
 
 @njit(f8[:, :, :](f8[:, :], f8[:], f8[:], i8[:, :]))
-def tensor_gradtensor_leg(x, _m, _h, orders):
+def tensor_gradtensor_leg(x: np.ndarray, _m: list, _h: list, orders: np.ndarray) -> np.ndarray:
+    """
+    Thie function takes a set of input points and returns the evaluated gradients of the tensor-lengendre polynomials.
+    Args:
+        x (np.ndarray): The points in which the tensor-lengendre polynomials are evaluated of shape (M, 2)
+        _m (list): The midpoint of the cartesian bounding box for the element.
+        _h (list): The half-extent of the cartesian bounding box for the element.
+        orders (np.ndarray): The orders of the tensor-lengendre polynomials for each direction: needs to be an integer
+        array of shape (N, 2). For orders[:, 0], the corresponding gradient tensor-lengendre polynomial is
+        [L_{orders[0, 0]}'(x)L_{orders[0, 1]}(y), L_{orders[0, 0]}(x)L_{orders[0, 1]}'(y)].
+
+    Returns:
+        np.ndarray: The tensor-lengendre polynomial values at the given points. This will be of the shape (N, M, 2).
+    """
 
     val = np.zeros((orders.shape[0], x.shape[0], 2))
     polydegree = np.max(orders)
+
+    # Correction term for the gradient operators
     correction = np.array([np.sqrt((i + 1.0) * i) for i in range(1, polydegree + 1)])
 
     shift_leg_der_11 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction)[orders[:, 0], :]
+    shift_leg_der_12 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction=np.array([np.nan]))[orders[:, 1], :]
 
-    shift_leg_der_12 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction = np.array([np.nan]))[orders[:, 1], :]
-    shift_leg_der_21 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction = np.array([np.nan]))[orders[:, 0], :]
-
+    shift_leg_der_21 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction=np.array([np.nan]))[orders[:, 0], :]
     shift_leg_der_22 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction)[orders[:, 1], :]
 
     val[..., 0] = shift_leg_der_11 * shift_leg_der_12
     val[..., 1] = shift_leg_der_21 * shift_leg_der_22
 
     return val
-
-
-def generate_local_quadrature(simplex_nodes: np.ndarray,
-                              quadrature_precision: int) -> (np.ndarray, np.ndarray):
-    # quadrature data
-    quadrature_order = int(np.ceil(0.5 * (quadrature_precision + 1)))
-    w_x, x = quad_GL(quadrature_order)
-    w_y, y = quad_GJ1(quadrature_order)
-
-    quad_x = np.reshape(np.repeat(x, w_y.shape[0]), (-1, 1))
-    quad_y = np.reshape(np.tile(y, w_x.shape[0]), (-1, 1), order='F')
-    weights = (w_x[:, None] * w_y).flatten().reshape(-1, 1)
-
-    # The duffy points and the reference triangle points.
-    shiftpoints = np.hstack((0.5 * (1.0 + quad_x) * (1.0 - quad_y) - 1.0, quad_y))
-    ref_points = 0.5 * shiftpoints + 0.5
-
-    # Jacobian calculation
-    B = 0.5 * np.vstack((simplex_nodes[1, :] - simplex_nodes[0, :], simplex_nodes[2, :] - simplex_nodes[0, :]))
-    De_tri = np.abs(np.linalg.det(B))
-
-    # The physical points
-    P_Qpoints = reference_to_physical_t3(simplex_nodes, ref_points)
-
-    return De_tri * weights, P_Qpoints

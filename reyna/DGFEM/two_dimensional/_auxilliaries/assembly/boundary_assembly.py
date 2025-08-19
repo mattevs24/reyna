@@ -101,6 +101,9 @@ def local_diffusion_dirichlet(nodes: np.ndarray,
     c_inv = min(k_area / abs_k_b, polydegree ** 2)
     sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * c_inv / k_area
 
+    # Assuming not p-coverable
+    # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) / abs_k_b
+
     g_val = dirichlet_bcs(P_Qpoints)
     a_val = diffusion(P_Qpoints)
 
@@ -120,9 +123,9 @@ def local_diffusion_dirichlet(nodes: np.ndarray,
         for j in range(i, dim_elem):
 
             t = (coe[:, 0] * (gradtensor_leg_array[i, :, 0] * tensor_leg_array[j, :] +
-                             gradtensor_leg_array[j, :, 0] * tensor_leg_array[i, :]) +
-                coe[:, 1] * (gradtensor_leg_array[i, :, 1] * tensor_leg_array[j, :] +
-                             gradtensor_leg_array[j, :, 1] * tensor_leg_array[i, :]) -
+                              gradtensor_leg_array[j, :, 0] * tensor_leg_array[i, :]) +
+                 coe[:, 1] * (gradtensor_leg_array[i, :, 1] * tensor_leg_array[j, :] +
+                              gradtensor_leg_array[j, :, 1] * tensor_leg_array[i, :]) -
                  sigma * tensor_leg_array[i, :] * tensor_leg_array[j, :])
             z[j, i] = np.dot(t, weights)
 

@@ -1,23 +1,52 @@
 import time
+import csv
 
 import numpy as np
 import matplotlib.pyplot as plt
+from numba import float64
+from numpy import dtype
 
 from reyna.polymesher.two_dimensional.domains import CircleDomain, RectangleDomain, CircleCircleDomain
 from reyna.polymesher.two_dimensional.main import poly_mesher
 from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
+from reyna.polymesher.two_dimensional.visualisation import display_mesh
+
 from main import DGFEM
 from plotter import plot_DG
+
+# with open('_benchmark_data/p1.csv', 'r') as csvfile:
+#     data = csv.reader(csvfile, delimiter=',')
+#     data_1 = np.array(list(data)).astype(np.float64)
+#
+# with open('_benchmark_data/p2.csv', 'r') as csvfile:
+#     data = csv.reader(csvfile, delimiter=',')
+#     data_2 = np.array(list(data)).astype(np.float64)
+#
+# with open('_benchmark_data/p3.csv', 'r') as csvfile:
+#     data = csv.reader(csvfile, delimiter=',')
+#     data_3 = np.array(list(data)).astype(np.float64)
+#
+# plt.plot(data_1[:, 0], data_1[:, 1], label='P1')
+# plt.plot(data_2[:, 0], data_2[:, 1], label='P2')
+# plt.plot(data_3[:, 0], data_3[:, 1], label='P3')
+# plt.legend()
+# plt.xscale('log')
+# plt.yscale('log')
+# plt.grid(True)
+# plt.show()
+
 
 # Section: advection testing -- tested and happy with this in all cases
 
 # advection = lambda x: np.ones(x.shape, dtype=float)
-# forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
-#                              np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1]))
+# reaction = lambda x: np.ones(x.shape[0], dtype=float)
+# forcing = lambda x: (np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
+#                               np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])) +
+#                      np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]))
 # solution = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 #
-# n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096]
+# n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
 #
 # h_s_dict = {}
 # dg_norms_dict = {}
@@ -31,22 +60,27 @@ from plotter import plot_DG
 #     l2_norms = []
 #     h1_norms = []
 #
+#     print(f"p={p}")
+#
 #     for n_r in n_elements:
 #
+#         print(f"n_r={n_r}")
+#
 #         dom = RectangleDomain(np.array([[0.5, 1.5], [0.5, 1.5]]))
-#         poly_mesh = poly_mesher(dom, max_iterations=50, n_points=n_r)
+#         poly_mesh = poly_mesher(dom, max_iterations=10, n_points=n_r)
 #         geometry = DGFEMGeometry(poly_mesh)
 #
 #         dg = DGFEM(geometry, polynomial_degree=p)
 #         dg.add_data(
 #             advection=advection,
+#             reaction=reaction,
 #             dirichlet_bcs=solution,
 #             forcing=forcing
 #         )
 #         dg.dgfem(solve=True)
 #
-#         l2_error, dg_error, _, _ = dg.errors(exact_solution=solution,
-#                                              div_advection=lambda x: np.zeros(x.shape[0]))
+#         l2_error, dg_error, _ = dg.errors(exact_solution=solution,
+#                                           div_advection=lambda x: np.zeros(x.shape[0]))
 #         dg_norms.append(float(dg_error))
 #         l2_norms.append(float(l2_error))
 #
@@ -89,6 +123,7 @@ from plotter import plot_DG
 
 # diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)
 
+
 def diffusion(x):
     out = np.zeros((x.shape[0], 2, 2), dtype=np.float64)
     for i in range(x.shape[0]):
@@ -97,9 +132,8 @@ def diffusion(x):
     return out
 
 
-reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
-forcing = lambda x: 3.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
-
+forcing = lambda x: 2.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
+bcs = lambda x: np.zeros(x.shape[0], dtype=np.float64)
 solution = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 
 
@@ -109,95 +143,77 @@ def grad_solution(x: np.ndarray):
 
     return np.vstack((u_x, u_y)).T
 
+# solution = lambda x: x[:, 0] * x[:, 1]
+# forcing = lambda x: np.zeros(x.shape[0], dtype=np.float64)
+#
+#
+# def grad_solution(x: np.ndarray):
+#     return np.vstack((x[:, 1], x[:, 0])).T
 
-# n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+
+# n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
 n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096]
 
-h_s_dict = {}
-dg_norms_dict = {}
-l2_norms_dict = {}
-h1_norms_dict = {}
+h_s = []
+dg_norms_dict = {1: [], 2: [], 3: []}
+l2_norms_dict = {1: [], 2: [], 3: []}
+h1_norms_dict = {1: [], 2: [], 3: []}
 
-int_l2_norms_dict = {}
-int_h1_norms_dict = {}
-int_edges_norms_dict = {}
-b_diff_norms_dict = {}
-b_adv_norms_dict = {}
+dom = RectangleDomain(np.array([[0.0, 1.0], [0.0, 1.0]]))
 
-assembly_time_dict = {}
+for n_r in n_elements:
 
-for p in [1, 2, 3]:
+    print(f"n={n_r}")
 
-    h_s = []
-    dg_norms = []
-    l2_norms = []
-    h1_norms = []
+    # TODO: Need to be careful here -- uncleaned meshes have small boundary edges that mess with calculations
 
-    int_l2_norms = []
-    int_h1_norms = []
-    int_edges_norms = []
-    b_diff_norms = []
-    b_adv_norms = []
+    poly_mesh = poly_mesher(dom, max_iterations=10, n_points=n_r, cleaned=True)
+    geometry = DGFEMGeometry(poly_mesh)
+    h_s.append(geometry.h)
 
-    assembly_times = []
+    for p in [1, 2, 3]:
 
-    for n_r in n_elements:
-
-        # dom = CircleCircleDomain()
-        dom = RectangleDomain(np.array([[0.0, 1.0], [0.0, 1.0]]))
-        poly_mesh = poly_mesher(dom, max_iterations=10, n_points=n_r, cleaned=True)
-        geometry = DGFEMGeometry(poly_mesh)
+        print(f"p={p}")
 
         dg = DGFEM(geometry, polynomial_degree=p)
         dg.add_data(
             diffusion=diffusion,
-            reaction=reaction,
             dirichlet_bcs=solution,
             forcing=forcing
         )
 
-        _time = time.time()
-
         dg.dgfem(solve=True)
 
-        assembly_times.append(time.time() - _time)
+        # display_mesh(poly_mesh)
+        # plot_DG(dg.solution, dg.geometry, dg.polydegree)
 
-        # plot_DG(dg.solution, geometry, dg.polydegree)
+        l2_error, dg_error, h1_error = dg.errors(
+            exact_solution=solution,
+            div_advection=lambda x: np.zeros(x.shape[0]),
+            grad_exact_solution=grad_solution
+        )
 
-        l2_error, dg_error, h1_error = dg.errors(exact_solution=solution,
-                                                 div_advection=lambda x: np.zeros(x.shape[0]),
-                                                 grad_exact_solution=grad_solution)
-        l2_norms.append(l2_error)
-        dg_norms.append(dg_error)
-        h1_norms.append(h1_error)
-        h_s.append(geometry.h)
+        l2_norms_dict[p].append(l2_error)
+        dg_norms_dict[p].append(dg_error)
+        h1_norms_dict[p].append(h1_error)
 
-    h_s_dict[p] = h_s
-    dg_norms_dict[p] = dg_norms
-    l2_norms_dict[p] = l2_norms
-    h1_norms_dict[p] = h1_norms
-
-    assembly_time_dict[p] = assembly_times
-
-
-x_ = np.linspace(0.03, 0.3, 100)
+x_ = np.linspace(np.min(h_s), np.max(h_s), 100)
 
 fig, axes = plt.subplots(1, 3)
 
 for k, v in dg_norms_dict.items():
-    axes[0].plot(h_s_dict[p], v, label=f'P{k}')
+    axes[0].plot(h_s, v, label=f'P{k}')
 
 axes[0].plot(x_, 15 * x_ ** 1.0, linestyle='--', label=r'$h^{1}$')
-axes[0].plot(x_, 10 * x_ ** 1.5, linestyle='--', label=r'$h^{\frac{3}{2}}$')
-axes[0].plot(x_, 5 * x_ ** 2.5, linestyle='--', label=r'$h^{\frac{5}{2}}$')
-axes[0].plot(x_, 2.0 * x_ ** 3.5, linestyle='--', label=r'$h^{\frac{7}{2}}$')
+axes[0].plot(x_, 7 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
+axes[0].plot(x_, 3 * x_ ** 3.0, linestyle='--', label=r'$h^{3.0}$')
 
 axes[0].legend(title='dG norm')
 axes[0].set_xscale('log')
 axes[0].set_yscale('log')
 
 for k, v in h1_norms_dict.items():
-    axes[1].plot(h_s_dict[p], v, label=f'P{k}')
+    axes[1].plot(h_s, v, label=f'P{k}')
 
 axes[1].plot(x_, 4.0 * x_ ** 1.0, linestyle='--', label=r'$h^{1}$')
 axes[1].plot(x_, 0.5 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
@@ -208,7 +224,7 @@ axes[1].set_xscale('log')
 axes[1].set_yscale('log')
 
 for k, v in l2_norms_dict.items():
-    axes[2].plot(h_s_dict[p], v, label=f'P{k}')
+    axes[2].plot(h_s, v, label=f'P{k}')
 
 axes[2].plot(x_, 4.0 * x_ ** 2.0, linestyle='--', label=r'$h^{2}$')
 axes[2].plot(x_, 0.5 * x_ ** 3.0, linestyle='--', label=r'$h^{3}$')
@@ -217,17 +233,6 @@ axes[2].plot(x_, 0.2 * x_ ** 4.0, linestyle='--', label=r'$h^{4}$')
 axes[2].legend(title='L2 norm')
 axes[2].set_xscale('log')
 axes[2].set_yscale('log')
-
-plt.show()
-plt.close()
-
-
-plt.plot(n_elements, assembly_time_dict[1])
-plt.plot(n_elements, assembly_time_dict[1])
-plt.plot(n_elements, assembly_time_dict[1])
-
-plt.xlabel('Number of elements')
-plt.ylabel('Assembly time')
 
 plt.show()
 
