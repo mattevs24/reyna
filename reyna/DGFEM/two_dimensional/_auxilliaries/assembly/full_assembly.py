@@ -1,14 +1,11 @@
 import typing
 
 import numpy as np
-# from numba import njit, f8, i8, optional
-# from numba.core.types.containers import Tuple
 
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import reference_to_physical_t3, \
     tensor_tensor_leg, tensor_gradtensor_leg
 
 
-# @njit(Tuple((f8[:, :], f8[:, :]))(f8[:, :], f8[:], Tuple((f8[:], f8[:, :])), i8[:, :], f8[:, :, :](f8[:, :]), f8[:, :](f8[:, :]), f8[:](f8[:, :]), f8[:](f8[:, :])))
 def localstiff(nodes: np.ndarray,
                bounding_box: np.ndarray,
                element_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
@@ -153,11 +150,6 @@ def int_localstiff(nodes: np.ndarray,
         # Assuming not p-coverable
         # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(1.0 / abs_k_b_1, 1.0 / abs_k_b_2)
 
-        auxiliary_sigma_1 = np.zeros((dim_elem, dim_elem), dtype=np.float64)  # pre-allocate space for stiffness mats
-        auxiliary_sigma_2 = np.zeros((dim_elem, dim_elem), dtype=np.float64)
-        auxiliary_sigma_3 = np.zeros((dim_elem, dim_elem), dtype=np.float64)
-        auxiliary_sigma_4 = np.zeros((dim_elem, dim_elem), dtype=np.float64)
-
         gradtensor_leg_array = np.stack(
             (tensor_gradtensor_leg(P_Qpoints, m1, h1, orders),
              tensor_gradtensor_leg(P_Qpoints, m2, h2, orders)), axis=1)
@@ -167,38 +159,30 @@ def int_localstiff(nodes: np.ndarray,
         a_gradx_array = np.einsum('ijk,nij -> nij', a_val, gradtensor_leg_array[:, 0])
         a_grady_array = np.einsum('ijk,nij -> nij', a_val, gradtensor_leg_array[:, 1])
 
-        # TODO: vectorise this here -- there is too much going on here to be funny
+        # Precompute arrays
+        agx = a_gradx_array @ normal
+        agy = a_grady_array @ normal
 
-        for i in range(dim_elem):
+        agx_w = agx * weights.T
+        agy_w = agy * weights.T
 
-            U1, U2 = tensor_leg_array[i, 0][:, None], tensor_leg_array[i, 1][:, None]
+        weighted_tensor = tensor_leg_array * weights.T
 
-            for j in range(i, dim_elem):
+        # Compute elementwise stiffness matrix contributions
+        auxiliary_sigma_1 = (-sigma * tensor_leg_array[:, 0] @ weighted_tensor[:, 0].T +
+                             0.5 * (agx @ weighted_tensor[:, 0].T + tensor_leg_array[:, 0] @ agx_w.T))
+        auxiliary_sigma_2 = (sigma * tensor_leg_array[:, 1] @ weighted_tensor[:, 0].T +
+                             0.5 * (agy @ weighted_tensor[:, 0].T - tensor_leg_array[:, 1] @ agx_w.T))
+        auxiliary_sigma_3 = (sigma * tensor_leg_array[:, 0] @ weighted_tensor[:, 1].T +
+                             0.5 * (-agx @ weighted_tensor[:, 1].T + tensor_leg_array[:, 0] @ agy_w.T))
+        auxiliary_sigma_4 = (-sigma * tensor_leg_array[:, 1] @ weighted_tensor[:, 1].T +
+                             0.5 * (-agy @ weighted_tensor[:, 1].T - tensor_leg_array[:, 1] @ agy_w.T))
 
-                V1, V2 = tensor_leg_array[j, 0][:, None], tensor_leg_array[j, 1][:, None]
-
-                # put it into the matrix
-                s1 = -sigma * (U1 * V1)
-                t1 = 0.5 * (a_gradx_array[i, ...] * V1 + a_gradx_array[j, ...] * U1) @ normal[:, None]
-                auxiliary_sigma_1[j, i] = np.dot((s1 + t1).T, weights)
-
-                s2 = sigma * (U2 * V1)
-                t2 = 0.5 * (a_grady_array[i, ...] * V1 - a_gradx_array[j, ...] * U2) @ normal[:, None]
-                auxiliary_sigma_2[j, i] = np.dot((s2 + t2).T, weights)
-
-                s3 = sigma * (U1 * V2)
-                t3 = 0.5 * (-a_gradx_array[i, ...] * V2 + a_grady_array[j, ...] * U1) @ normal[:, None]
-                auxiliary_sigma_3[j, i] = np.dot((s3 + t3).T, weights)
-
-                s4 = -sigma * (U2 * V2)
-                t4 = 0.5 * (-a_grady_array[i, ...] * V2 - a_grady_array[j, ...] * U2) @ normal[:, None]
-                auxiliary_sigma_4[j, i] = np.dot((s4 + t4).T, weights)
-
-        # term may be symmetric or skew-symmetric -- account for this here
-        local_1 = auxiliary_sigma_1 + np.tril(auxiliary_sigma_1, -1).T  # U1, V1
-        local_2 = auxiliary_sigma_2 + np.tril(auxiliary_sigma_3, -1).T  # U2, V1
-        local_3 = auxiliary_sigma_3 + np.tril(auxiliary_sigma_2, -1).T  # U1, V2
-        local_4 = auxiliary_sigma_4 + np.tril(auxiliary_sigma_4, -1).T  # U2, V2
+        # Sort contributions and assemble
+        local_1 = auxiliary_sigma_1
+        local_2 = np.triu(auxiliary_sigma_2).T + np.triu(auxiliary_sigma_3, 1)
+        local_3 = np.triu(auxiliary_sigma_3).T + np.triu(auxiliary_sigma_2, 1)
+        local_4 = auxiliary_sigma_4
 
         z -= np.vstack((np.hstack((local_1.T, local_3.T)), np.hstack((local_2.T, local_4.T))))
 
