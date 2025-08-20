@@ -36,7 +36,8 @@ def localstiff(nodes: np.ndarray,
         np.ndarray: Local stiffness matrix.
     """
 
-    weights, ref_points = element_quadrature_rule  # Call in the element quadrature rule
+    # Unpacking quadrature points and weights
+    weights, ref_points = element_quadrature_rule
 
     # Jacobian calculation -- area of triangle
     B = 0.5 * np.vstack((nodes[1, :] - nodes[0, :], nodes[2, :] - nodes[0, :]))
@@ -44,10 +45,10 @@ def localstiff(nodes: np.ndarray,
 
     weights = De_tri * weights
 
-    P_Qpoints = reference_to_physical_t3(nodes, ref_points)  # map reference to physical points
+    P_Qpoints = reference_to_physical_t3(nodes, ref_points)  # Map reference to physical points
 
     dim_elem = orders.shape[0]
-    z = np.zeros((dim_elem, dim_elem))  # pre-allocate space to save repeated calculations
+    z = np.zeros((dim_elem, dim_elem))  # Pre-allocate space to save repeated calculations
 
     h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
     m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
@@ -84,7 +85,8 @@ def int_localstiff(nodes: np.ndarray,
                    edge_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
                    orders: np.ndarray,
                    element_nodes_1: np.ndarray, element_nodes_2: np.ndarray,
-                   k_1_area: float, k_2_area: float, polydegree: int,
+                   k_1_area: float, k_2_area: float,
+                   polydegree: int,
                    sigma_D: float,
                    normal: np.ndarray,
                    diffusion: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]],
@@ -112,7 +114,7 @@ def int_localstiff(nodes: np.ndarray,
         np.ndarray: The local stiffness matrix corresponding to both elements and both directions.
     """
 
-    # Generating quadrature points and weights
+    # Unpacking quadrature points and weights
     weights, ref_Qpoints = edge_quadrature_rule
 
     # Convert reference to physical quadrature points and calculate length value, De, and midpoint, mid_point
@@ -137,7 +139,7 @@ def int_localstiff(nodes: np.ndarray,
 
     if diffusion is not None:
 
-        # penalty term
+        # Penalty term
         lambda_dot = normal @ diffusion(mid_point).squeeze() @ normal
 
         abs_k_b_1 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_1 - nodes[0, :]))))

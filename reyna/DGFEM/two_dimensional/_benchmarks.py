@@ -151,15 +151,14 @@ def grad_solution(x: np.ndarray):
 #     return np.vstack((x[:, 1], x[:, 0])).T
 
 
-# n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
-n_elements = [32, 64, 128, 256, 512, 1024]
+n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
 
 h_s = []
 dg_norms_dict = {1: [], 2: [], 3: []}
 l2_norms_dict = {1: [], 2: [], 3: []}
 h1_norms_dict = {1: [], 2: [], 3: []}
 
-dom = RectangleDomain(np.array([[0.0, 1.0], [0.0, 1.0]]))
+dom = RectangleDomain(np.array([[0.0, 0.25], [0.0, 0.25]]))
 
 for n_r in n_elements:
 

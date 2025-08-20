@@ -82,7 +82,6 @@ def tensor_tensor_leg(x: np.ndarray, _m: np.ndarray, _h: np.ndarray, orders: np.
 
     Returns:
         np.ndarray: The tensor-lengendre polynomial values at the given points. This will be of the shape (N, M).
-
     """
 
     polydegree = np.max(orders)
@@ -115,9 +114,17 @@ def tensor_gradtensor_leg(x: np.ndarray, _m: np.ndarray, _h: np.ndarray, orders:
     correction = np.array([np.sqrt((i + 1.0) * i) for i in range(1, polydegree + 1)])
 
     shift_leg_der_11 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction)[orders[:, 0], :]
-    shift_leg_der_12 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction=np.array([np.nan]))[orders[:, 1], :]
 
-    shift_leg_der_21 = tensor_shift_leg(x[:, 0], _m[0], _h[0], polydegree, correction=np.array([np.nan]))[orders[:, 0], :]
+    shift_leg_der_12 = tensor_shift_leg(
+        x[:, 1], _m[1], _h[1], polydegree,
+        correction=np.array([np.nan])
+    )[orders[:, 1], :]
+
+    shift_leg_der_21 = tensor_shift_leg(
+        x[:, 0], _m[0], _h[0], polydegree,
+        correction=np.array([np.nan])
+    )[orders[:, 0], :]
+
     shift_leg_der_22 = tensor_shift_leg(x[:, 1], _m[1], _h[1], polydegree, correction)[orders[:, 1], :]
 
     val[..., 0] = shift_leg_der_11 * shift_leg_der_12

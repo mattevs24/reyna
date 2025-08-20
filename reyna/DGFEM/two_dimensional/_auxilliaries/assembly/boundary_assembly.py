@@ -1,4 +1,5 @@
 import typing
+import time
 
 import numpy as np
 
@@ -7,9 +8,9 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import tensor_tensor
 
 def local_advection_inflow(nodes: np.ndarray,
                            bounding_box: np.ndarray,
-                           normal: np.ndarray,
                            edge_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
-                           Lege_ind: np.ndarray,
+                           orders: np.ndarray,
+                           normal: np.ndarray,
                            advection: typing.Callable[[np.ndarray], np.ndarray],
                            dirichlet_bcs: typing.Callable[[np.ndarray], np.ndarray]) -> (np.ndarray, np.ndarray):
     """
@@ -17,34 +18,38 @@ def local_advection_inflow(nodes: np.ndarray,
     the boundary value contribution to the forcing term. This is restricted to the inflow boundary.
 
     Args:
-        nodes: The endpoints/vertieces of the boundary edge in question.
-        bounding_box: The bounding box of the polygon in question.
-        normal: the OPUNV to the boundary edge.
-        edge_quadrature_rule: The quadrature rule for the edge in question.
-        Lege_ind: The indecies of the tensor Legendre polynomials.
-        advection: The advection function.
-        dirichlet_bcs: The Dirichlet boundary conditions required for the problem.
+        nodes (np.ndarray): The vertices of the boundary edge in question.
+        bounding_box (np.ndarray): The bounding box for the element in question
+        edge_quadrature_rule (typing.Tuple[np.ndarray, np.ndarray]): The quadrature rule for the edge in question.
+        orders (np.ndarray): The orders of the associated tensor-Legendre polynomials.
+        normal (np.ndarray): The normal vector of the edge. The direction is pre-determined.
+        advection (typing.Callable[[np.ndarray], np.ndarray]): The advection function.
+        dirichlet_bcs (typing.Callable[[np.ndarray], np.ndarray]): The Dirichlet boundary conditions.
     Returns:
-        (np.ndarray, np.ndarray): The local stiffness matrix associated with the local outflow boundary.
+        (np.ndarray, np.ndarray): The local stiffness matrix and forcing vector associated with the local outflow
+        boundary.
     """
+
+    # Unpacking quadrature points and weights
     weights, ref_Qpoints = edge_quadrature_rule
 
-    # change the quarature nodes from reference domain to physical domain
+    # Convert reference to physical quadrature points and calculate length value, De, and midpoint, mid_point
     mid = np.mean(nodes, axis=0, keepdims=True)
     tanvec = 0.5 * (nodes[1, :] - nodes[0, :])
     C = mid.repeat(ref_Qpoints.shape[0], axis=0)
     P_Qpoints = ref_Qpoints @ tanvec[:, None].T + C
     De = np.linalg.norm(tanvec)
 
+    # Getting function values for the quadrature
     b_dot_n = np.sum(advection(P_Qpoints) * normal[None, :], axis=1)
     g_val = dirichlet_bcs(P_Qpoints)
 
     h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
     m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
 
-    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, Lege_ind)
+    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, orders)
 
-    _z = (b_dot_n * tensor_leg_array)
+    _z = (b_dot_n * tensor_leg_array)  # Aux. term
     z = _z @ (weights * tensor_leg_array.T)  # Bilinear term
     z_f = (g_val * _z) @ weights  # Forcing term
 
@@ -53,12 +58,12 @@ def local_advection_inflow(nodes: np.ndarray,
 
 def local_diffusion_dirichlet(nodes: np.ndarray,
                               bounding_box: np.ndarray,
-                              normal: np.ndarray,
                               edge_quadrature_rule: typing.Tuple[np.ndarray, np.ndarray],
-                              Lege_ind: np.ndarray,
+                              orders: np.ndarray,
                               element_nodes: np.ndarray,
                               k_area: float, polydegree: float,
                               sigma_D: float,
+                              normal: np.ndarray,
                               dirichlet_bcs: typing.Callable[[np.ndarray], np.ndarray],
                               diffusion: typing.Callable[[np.ndarray], np.ndarray]) -> (np.ndarray, np.ndarray):
     """
@@ -67,33 +72,34 @@ def local_diffusion_dirichlet(nodes: np.ndarray,
     boundary.
 
     Args:
-        nodes: The endpoints of the boundary edge.
-        bounding_box: The bounding box of the corresponding polygon.
-        normal: The OPUNV to the boundary edge.
-        edge_quadrature_rule: The quadrature rule for the edge in question.
-        Lege_ind: The polynomial indecies in question.
-        element_nodes: The nodes of the element in question to generate the penalty term
-        k_area: the area of the element in question
-        polydegree: the polynomial degree of the system
-        sigma_D: The global penalty parameter.
-        dirichlet_bcs: The dirichlet boundary conditions to be enforced.
-        diffusion: The diffusion coefficient (tensor) function.
+        nodes (np.ndarray): The vertices of the boundary edge in question.
+        bounding_box (np.ndarray): The bounding box of the corresponding polygon.
+        edge_quadrature_rule (typing.Tuple[np.ndarray, np.ndarray]): The quadrature rule for the edge in question.
+        orders (np.ndarray): The orders of the associated tensor-Legendre polynomials.
+        element_nodes (np.ndarray): The vertices of the element in question.
+        k_area (float): The area of the element in question.
+        polydegree (int): The max degree of Legendre polynomial used (this is used for the interior penalty terms).
+        sigma_D (float): The global penalisation parameter.
+        normal (np.ndarray): The OPUNV to the boundary edge.
+        dirichlet_bcs (typing.Callable[[np.ndarray], np.ndarray]): The Dirichlet boundary conditions.
+        diffusion (typing.Callable[[np.ndarray], np.ndarray]): The diffusion function.
     Returns:
-        (np.ndarray, np.ndarray): The 1D array containing the contributions of each of the basis functions as well as
-        the local stiffness matrix contributions.
+        (np.ndarray, np.ndarray): The local stiffness matrix and forcing vector associated with the elliptic boundary.
     """
 
-    # quadrature data
+    # Unpacking quadrature points and weights
     weights, ref_Qpoints = edge_quadrature_rule
 
-    # change the quadrature nodes from reference domain to physical domain
+    # Convert reference to physical quadrature points and calculate length value, De, and midpoint, mid_point
     mid = np.mean(nodes, axis=0, keepdims=True)
     tanvec = 0.5 * (nodes[1, :] - nodes[0, :])
     C = mid.repeat(ref_Qpoints.shape[0], axis=0)
     P_Qpoints = ref_Qpoints @ tanvec[:, None].T + C
     De = np.linalg.norm(tanvec)
 
-    # penalty term
+    weights = De * weights
+
+    # Penalty term
     lambda_dot = normal @ diffusion(mid).squeeze() @ normal
     abs_k_b = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes - nodes[0, :]))))
 
@@ -104,6 +110,7 @@ def local_diffusion_dirichlet(nodes: np.ndarray,
     # Assuming not p-coverable
     # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) / abs_k_b
 
+    # Getting function values for the quadrature
     g_val = dirichlet_bcs(P_Qpoints)
     a_val = diffusion(P_Qpoints)
 
@@ -112,25 +119,19 @@ def local_diffusion_dirichlet(nodes: np.ndarray,
     m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
     h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
 
-    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, Lege_ind)
-    gradtensor_leg_array = tensor_gradtensor_leg(P_Qpoints, m, h, Lege_ind)
+    tensor_leg_array = tensor_tensor_leg(P_Qpoints, m, h, orders)
+    gradtensor_leg_array = tensor_gradtensor_leg(P_Qpoints, m, h, orders)
 
-    dim_elem = Lege_ind.shape[0]
+    wc = weights * coe
 
-    z = np.zeros((dim_elem, dim_elem))
+    Zx = ((gradtensor_leg_array[:, :, 0] * wc[:, 0]) @ tensor_leg_array.T +
+          (tensor_leg_array * wc[:, 0]) @ gradtensor_leg_array[:, :, 0].T)
+    Zy = ((gradtensor_leg_array[:, :, 1] * wc[:, 1]) @ tensor_leg_array.T +
+          (tensor_leg_array * wc[:, 1]) @ gradtensor_leg_array[:, :, 1].T)
+    Zs = -sigma * (tensor_leg_array * weights.T) @ tensor_leg_array.T
 
-    for i in range(dim_elem):
-        for j in range(i, dim_elem):
-
-            t = (coe[:, 0] * (gradtensor_leg_array[i, :, 0] * tensor_leg_array[j, :] +
-                              gradtensor_leg_array[j, :, 0] * tensor_leg_array[i, :]) +
-                 coe[:, 1] * (gradtensor_leg_array[i, :, 1] * tensor_leg_array[j, :] +
-                              gradtensor_leg_array[j, :, 1] * tensor_leg_array[i, :]) -
-                 sigma * tensor_leg_array[i, :] * tensor_leg_array[j, :])
-            z[j, i] = np.dot(t, weights)
-
-    z += z.T - np.diag(np.diag(z))
+    z = Zx + Zy + Zs
 
     z_f = np.dot(g_val * (np.sum(coe * gradtensor_leg_array, axis=-1) - sigma * tensor_leg_array), weights)
 
-    return De * z, De * z_f
+    return z, z_f

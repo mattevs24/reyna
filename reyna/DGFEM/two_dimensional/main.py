@@ -19,7 +19,7 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly.full_assembly import loc
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.boundary_assembly import (local_advection_inflow,
                                                                                   local_diffusion_dirichlet)
 
-from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.boundary_assembly import error_bd_face, error_cr_bd_face
+from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.boundary_assembly import error_d_face, error_a_face
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.full_assembly import error_element, error_interface
 
 
@@ -308,13 +308,13 @@ class DGFEM:
             local_bc_diff, local_bcs_forcing = local_diffusion_dirichlet(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                 self.geometry.elem_bounding_boxes[element_idx],
-                self.geometry.boundary_normals[v, :],
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
                 self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
                 self.geometry.areas[element_idx],
                 self.polydegree,
                 self.sigma_D,
+                self.geometry.boundary_normals[v, :],
                 self.dirichlet_bcs,
                 self.diffusion
             )
@@ -353,9 +353,9 @@ class DGFEM:
             local_bc_adv, forcing_bcs_adv = local_advection_inflow(
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                 self.geometry.elem_bounding_boxes[element_idx],
-                self.geometry.boundary_normals[v, :],
                 self.edge_reference_quadrature,
                 self.polynomial_indecies,
+                self.geometry.boundary_normals[v, :],
                 self.advection,
                 self.dirichlet_bcs
             )
@@ -428,8 +428,8 @@ class DGFEM:
                 self.polynomial_indecies,
                 self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
                 exact_solution,
-                self.diffusion,
                 grad_exact_solution,
+                self.diffusion,
                 auxilliary_function
             )
 
@@ -454,9 +454,9 @@ class DGFEM:
                 self.geometry.areas[elem_oneface[1]],
                 self.polydegree,
                 self.sigma_D,
-                self.geometry.interior_normals[t, :],
                 self.solution[elem_oneface[0] * self.dim_elem:(elem_oneface[0] + 1) * self.dim_elem],
                 self.solution[elem_oneface[1] * self.dim_elem:(elem_oneface[1] + 1) * self.dim_elem],
+                self.geometry.interior_normals[t, :],
                 self.diffusion,
                 self.advection
             )
@@ -468,19 +468,19 @@ class DGFEM:
             for v in list(self.boundary_information.elliptical_indecies):
                 element_idx = self.geometry.boundary_edges_to_element[v]
 
-                dg_subnorm = error_bd_face(
+                dg_subnorm = error_d_face(
                     self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                     self.geometry.elem_bounding_boxes[element_idx],
-                    self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
-                    self.geometry.boundary_normals[v, :],
                     self.edge_reference_quadrature,
                     self.polynomial_indecies,
-                    exact_solution,
-                    self.diffusion,
                     self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
                     self.geometry.areas[element_idx],
                     self.polydegree,
-                    self.sigma_D
+                    self.sigma_D,
+                    self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
+                    self.geometry.boundary_normals[v, :],
+                    exact_solution,
+                    self.diffusion
                 )
 
                 dg_error += dg_subnorm
@@ -490,13 +490,13 @@ class DGFEM:
             for t in range(self.geometry.boundary_edges.shape[0]):
                 elem_bdface = self.geometry.boundary_edges_to_element[t]
 
-                dg_subnorm = error_cr_bd_face(
+                dg_subnorm = error_a_face(
                     self.geometry.nodes[self.geometry.boundary_edges[t, :], :],
                     self.geometry.elem_bounding_boxes[elem_bdface],
-                    self.solution[elem_bdface * self.dim_elem:(elem_bdface + 1) * self.dim_elem],
-                    self.geometry.boundary_normals[t, :],
                     self.edge_reference_quadrature,
                     self.polynomial_indecies,
+                    self.solution[elem_bdface * self.dim_elem:(elem_bdface + 1) * self.dim_elem],
+                    self.geometry.boundary_normals[t, :],
                     exact_solution,
                     self.advection
                 )
