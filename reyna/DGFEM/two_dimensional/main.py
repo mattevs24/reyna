@@ -35,6 +35,7 @@ class DGFEM:
         just the geometry object which defines all useful features of the mesh as well as the degree of polynomial
         approximation required.
         """
+        # TODO: redo this class init file in the googld style
         self.geometry = geometry
         self.h = geometry.h
         self.polydegree = polynomial_degree
@@ -99,6 +100,17 @@ class DGFEM:
 
         Raises:
             ValueError: If Dirichlet boundary conditions are not present.
+            ValueError: If no advection or diffusion terms are present.
+
+        Notes:
+            - It's important to note the shapes of the functions that are inputted. All need to be able ot take in a
+              (N,2) array and return an array of varying shapes depending on the dimension of the output of the
+              coefficient.
+            - These functions must also be 'numba' compatible. This means certain 'numpy' functions are not allowed.
+
+        See Also:
+            - [numba compatible functions](https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html#linear-algebra)
+
         """
 
         self.advection = njit(f8[:, :](f8[:, :]))(advection) if advection is not None else None
@@ -106,6 +118,9 @@ class DGFEM:
         self.reaction = njit(f8[:](f8[:, :]))(reaction) if reaction is not None else None
         self.forcing = njit(f8[:](f8[:, :]))(forcing) if forcing is not None else None
         self.dirichlet_bcs = njit(f8[:](f8[:, :]))(dirichlet_bcs) if dirichlet_bcs is not None else None
+
+        if self.advection is None and self.diffusion is None:
+            raise ValueError('No advection or diffusion specified.')
 
         if self.dirichlet_bcs is None:
             raise ValueError('Must have Dirichlet boundary conditions.')
@@ -122,6 +137,9 @@ class DGFEM:
             solve (bool): This method generates the linear system associated with the DGFEM solution to the inputted
             problem. Selecting solve will also solve this linear system.
             verbose (int) : This is the verbose level of the method. 0 is no verbose, 1 gives the assembly time.
+
+        Returns:
+            None
 
         Raises:
             ValueError: If the parameter 'verbose' is not contained in the right interval.
@@ -161,7 +179,13 @@ class DGFEM:
         if solve:
             self.solution = spsolve(self.B, self.L)
 
-    def _intialise_quadrature(self):
+    def _intialise_quadrature(self) -> None:
+        """
+        This function generates the quadrature rule required for the scheme.
+
+        Returns:
+            None
+        """
 
         quadrature_order = self.polydegree + 1
 
@@ -197,9 +221,14 @@ class DGFEM:
 
         return boundary_information
 
-    def _stiffness_matrix(self):
+    def _stiffness_matrix(self) -> (csr_matrix, csr_matrix):
         """
-        Assemble the local stiffness matrices and load vector for the 2D integral components.
+        This method generates the local stiffness matrix for upwind/IP scheme in use as well as the loading/forcing
+        vector.
+
+        Returns:
+            (csr_matrix, csr_matrix): A sparse matrix and vector containing the contributions of the diffusion,
+            advection, reaction and forcing terms to the stiffness matrix and loading vector.
         """
 
         i = np.zeros((self.dim_elem ** 2, self.geometry.n_elements), dtype=int)
@@ -246,7 +275,14 @@ class DGFEM:
 
         return stiffness_matrix, forcing_contribution_vector
 
-    def _interior_stiffness_matrix(self):
+    def _interior_stiffness_matrix(self) -> csr_matrix:
+        """
+        This method generates the interior stiffness matrix for upwind/IP scheme in use.
+
+        Returns:
+            csr_matrix: A sparse matrix containing both diffusion and advection contributions over the edges of the
+            computational mesh.
+        """
 
         i = np.zeros((4 * self.dim_elem ** 2, self.geometry.interior_edges.shape[0]), dtype=int)
         j = np.zeros((4 * self.dim_elem ** 2, self.geometry.interior_edges.shape[0]), dtype=int)
@@ -286,7 +322,15 @@ class DGFEM:
 
         return int_ip_matrix
 
-    def _diffusion_bcs_contribution(self):
+    def _diffusion_bcs_contribution(self) -> (csr_matrix, csr_matrix):
+        """
+        This method generates the portion of the stiffness matrix and vector associated with the elliptic
+        boundary for the IP scheme used for the diffusion term.
+
+        Returns:
+            (csr_matrix, csr_matrix): An sparse matrix and a sparse vector containing the contribution of the diffusion
+            term to the elliptic boundary for the striffness matrix and forcing vectors.
+        """
         i = np.zeros((self.dim_elem ** 2, self.geometry.n_elements), dtype=int)
         j = np.zeros((self.dim_elem ** 2, self.geometry.n_elements), dtype=int)
         s = np.zeros((self.dim_elem ** 2, self.geometry.n_elements))
@@ -331,11 +375,15 @@ class DGFEM:
 
         return diffusion_bcs_stiffness_matrix, forcing_bcs_diffusion
 
-    def _advection_bcs_contribution(self):
+    def _advection_bcs_contribution(self) -> (csr_matrix, csr_matrix):
         """
-                This method generates the portion of the stiffness matrix associated with the inflow
-                boundary for the upwind scheme used.
-                """
+        This method generates the portion of the stiffness matrix and vector associated with the inflow
+        boundary for the upwind scheme used.
+
+        Returns:
+            (csr_matrix, csr_matrix): An sparse matrix and a sparse vector containing the contribution of the advection
+            term to the inflow boundary for the striffness matrix and forcing vectors.
+        """
 
         i = np.zeros((self.dim_elem ** 2, len(self.boundary_information.inflow_indecies)), dtype=int)
         j = np.zeros((self.dim_elem ** 2, len(self.boundary_information.inflow_indecies)), dtype=int)
@@ -399,7 +447,7 @@ class DGFEM:
 
         Raises:
               ValueError: If the 'solution' property is not filled before running.
-              ValueError: If self.diffusion and the parameter 'grad_exact_solution' are not both fulled or empty.
+              ValueError: If 'self.diffusion' and the parameter 'grad_exact_solution' are not both fulled or empty.
 
         """
 
