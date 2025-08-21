@@ -22,6 +22,8 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly.boundary_assembly import
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.boundary_assembly import error_d_face, error_a_face
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.full_assembly import error_element, error_interface
 
+from reyna.DGFEM.two_dimensional.plotter import plot_DG
+
 
 class DGFEM:
 
@@ -511,3 +513,10 @@ class DGFEM:
             return l2_error, dg_error, None
 
         return l2_error, dg_error, h1_error
+
+    def plot_DG(self):
+
+        if self.solution is None:
+            raise ValueError("Need to provide a solution using either the method '.dgfem' or an external function.")
+
+        plot_DG(self.solution, self.geometry, self.polydegree)

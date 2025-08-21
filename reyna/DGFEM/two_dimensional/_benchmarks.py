@@ -182,6 +182,7 @@ for n_r in n_elements:
         )
 
         dg.dgfem(solve=True)
+        dg.plot_DG()
 
         # display_mesh(poly_mesh)
         # plot_DG(dg.solution, dg.geometry, dg.polydegree)
