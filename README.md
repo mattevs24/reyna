@@ -112,8 +112,14 @@ stiffness matrix and data vector are generated.
 
 ### Visualize the solution
 
-We also have a function to plot the data, `plot_DG`, but this is limited to polynomial degree 1
+We also have a method to plot the data, `plot_DG`, but this is limited to polynomial degree 1
 with limited support for polynomial degree 0. See the example below
+
+```python
+dg.plot_DG()
+```
+
+or for more customisation, use the function `plot_DG`,
 
 ```python
 from reyna.DGFEM.two_dimensional.plotter import plot_DG
@@ -163,19 +169,20 @@ There are many predefined domains in the `reyna/polymesher/two_dimensional/domai
 more advanced `CircleCircleDomain()` domain;
 
 ![example_2](https://raw.githubusercontent.com/mattevs24/reyna/main/branding/circlecircle_example.png)
+
+## Example Notebooks
+
+There are Jupyter notebooks availible in the GitHub repository which run through several examples of this
+package in action. This also runs through examples of benchmarking and custom domain generation.
+
 ## Documentation
 
 For detailed usage and API documentation, please visit our (soon to be) readthedocs. 
-The above example covers most cases and the current docstrings are very thorough.
+The above example and notebooks cover most cases and the current docstrings are very thorough.
 
 ## Contributing
 
-We welcome contributions! To contribute:
-
-Fork the repository.
-Create a new branch for your feature or bug fix.
-Write tests for your changes.
-Submit a pull request.
+This project accepts contributions - see the CONTRIBUTING.md file for details.
 
 ## License
 
