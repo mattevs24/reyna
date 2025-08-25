@@ -44,3 +44,6 @@ include = ["reyna*"]
 "branding" = ["*"]
 "paper" = ["*"]
 "examples" = ["*"]
+
+[tool.isort]
+skip = ["reyna.DGFEM.two_dimensional._benchmark_data", "reyna.DGFEM/two_dimensional/_benchmarks.py"]
