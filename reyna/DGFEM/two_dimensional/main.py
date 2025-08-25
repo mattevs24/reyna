@@ -26,19 +26,62 @@ from reyna.DGFEM.two_dimensional.plotter import plot_DG
 
 
 class DGFEM:
+    """
+    This class comtains all the methods required for the DGFEM solver.
+
+    Attributes:
+        geometry (DGFEMGeometry): The geometry associated with the computation domain for the problem.
+        h (float): The maximal cell diameter of the mesh.
+        polydegree (int): The highest total degree polynomial space required.
+
+        advection (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The advection coeffient.
+        diffusion (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The diffusion coeffient.
+        reaction (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The reaction coeffient.
+        forcing (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The forcing term.
+        dirichlet_bcs (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The dirichlet boundary conditions.
+
+        boundary_information (typing.Optional[BoundaryInformation]): The information associated with the boundary of the
+        computational domain and PDE coefficients.
+        sigma_D (float): The global penalisation coefficient.
+
+        orders (typing.Optional[np.ndarray]): The orders of the tensor-Legendre polynomials.
+
+        dim_elem (typing.Optional[int]): The local finite element space dimension.
+        dim_system (typing.Optional[int]): The global system dimension.
+
+        solution (typing.Optional[np.ndarray]): The solution vector for the coefficients of the Legendre polynomials.
+
+        B (typing.Optional[csr_matrix]): The global stiffness matrix (populated when .dgfem() method is called).
+        L (typing.Optional[np.ndarray]): The global forcng vector (populated when .dgfem() method is called).
+
+        element_reference_quadrature (typing.Optional[typing.Tuple[np.ndarray, np.ndarray]]): The 2d reference
+        quadrature rule.
+        edge_reference_quadrature (typing.Optional[typing.Tuple[np.ndarray, np.ndarray]]): The 1d reference quadrature
+        rule.
+
+    Methods:
+        add_data(...): Add the function coefficients for the non-negative characteristic second order PDE.
+        dgfem(...): Run the solver with the information and geometry inputted.
+        errors(...): Given the numerically solved PDE, find the errors associated with the numerical solution.
+        plot_DG(...): Plot the DGFEM solution.
+
+    See Also:
+        - The reference and example notebooks for examples on how this class is used fully.
+    """
 
     def __init__(self, geometry: DGFEMGeometry, polynomial_degree: int = 1):
         """
-        Class initialisation
+        Initializes DGFEM with required base parameters.
 
-        In this (default) method, we define all the necessary objects for the numerical method itself. This requires
-        just the geometry object which defines all useful features of the mesh as well as the degree of polynomial
-        approximation required.
+        Args:
+            geometry (DGFEMGeometry): The geometry associated with the computation domain for the problem.
+            polynomial_degree (int): The highest total degree polynomial space required.
+
         """
-        # TODO: redo this class init file in the googld style
-        self.geometry = geometry
-        self.h = geometry.h
-        self.polydegree = polynomial_degree
+
+        self.geometry: DGFEMGeometry = geometry
+        self.h: float = geometry.h
+        self.polydegree: int = polynomial_degree
 
         # Problem Functions
         self.advection = None
@@ -48,10 +91,10 @@ class DGFEM:
         self.dirichlet_bcs = None
 
         self.boundary_information: typing.Optional[BoundaryInformation] = None
-        self.sigma_D = 10
+        self.sigma_D = 10.0
 
         # Method Parameters
-        self.polynomial_indecies = None
+        self.orders = None
 
         self.dim_elem: typing.Optional[int] = None
         self.dim_system: typing.Optional[int] = None
@@ -109,7 +152,7 @@ class DGFEM:
             - These functions must also be 'numba' compatible. This means certain 'numpy' functions are not allowed.
 
         See Also:
-            - [numba compatible functions](https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html#linear-algebra)
+            - [numba compatible functions](https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html)
 
         """
 
@@ -149,9 +192,9 @@ class DGFEM:
         assert 0 <= verbose <= 1, ValueError('"verbose" must be either 0 or 1.')
 
         # Generate the basic information for the method, shared by all the methods.
-        self.polynomial_indecies = Basis_index2D(self.polydegree)  # Legendre polynomial orders
+        self.orders = Basis_index2D(self.polydegree)  # Legendre polynomial orders
 
-        self.dim_elem: int = np.shape(self.polynomial_indecies)[0]
+        self.dim_elem: int = np.shape(self.orders)[0]
         self.dim_system: int = self.dim_elem * self.geometry.n_elements
 
         _time = time.time()
@@ -255,7 +298,7 @@ class DGFEM:
                 self.geometry.nodes[local_triangle, :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.element_reference_quadrature,
-                self.polynomial_indecies,
+                self.orders,
                 self.diffusion,
                 self.advection,
                 self.reaction,
@@ -297,7 +340,7 @@ class DGFEM:
                 self.geometry.elem_bounding_boxes[elem_oneface[0]],
                 self.geometry.elem_bounding_boxes[elem_oneface[1]],
                 self.edge_reference_quadrature,
-                self.polynomial_indecies,
+                self.orders,
                 self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[0]], :],
                 self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[1]], :],
                 self.geometry.areas[elem_oneface[0]],
@@ -355,7 +398,7 @@ class DGFEM:
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.edge_reference_quadrature,
-                self.polynomial_indecies,
+                self.orders,
                 self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
                 self.geometry.areas[element_idx],
                 self.polydegree,
@@ -404,7 +447,7 @@ class DGFEM:
                 self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.edge_reference_quadrature,
-                self.polynomial_indecies,
+                self.orders,
                 self.geometry.boundary_normals[v, :],
                 self.advection,
                 self.dirichlet_bcs
@@ -475,7 +518,7 @@ class DGFEM:
                 self.geometry.nodes[local_triangle, :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.element_reference_quadrature,
-                self.polynomial_indecies,
+                self.orders,
                 self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
                 exact_solution,
                 grad_exact_solution,
@@ -497,7 +540,7 @@ class DGFEM:
                 self.geometry.elem_bounding_boxes[elem_oneface[0]],
                 self.geometry.elem_bounding_boxes[elem_oneface[1]],
                 self.edge_reference_quadrature,
-                self.polynomial_indecies,
+                self.orders,
                 self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[0]], :],
                 self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[1]], :],
                 self.geometry.areas[elem_oneface[0]],
@@ -522,7 +565,7 @@ class DGFEM:
                     self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
                     self.geometry.elem_bounding_boxes[element_idx],
                     self.edge_reference_quadrature,
-                    self.polynomial_indecies,
+                    self.orders,
                     self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
                     self.geometry.areas[element_idx],
                     self.polydegree,
@@ -544,7 +587,7 @@ class DGFEM:
                     self.geometry.nodes[self.geometry.boundary_edges[t, :], :],
                     self.geometry.elem_bounding_boxes[elem_bdface],
                     self.edge_reference_quadrature,
-                    self.polynomial_indecies,
+                    self.orders,
                     self.solution[elem_bdface * self.dim_elem:(elem_bdface + 1) * self.dim_elem],
                     self.geometry.boundary_normals[t, :],
                     exact_solution,
