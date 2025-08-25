@@ -16,25 +16,63 @@ import pickle
 class DGFEMGeometry:
     """
     This is a geometry function which provides all the additional mesh information that a DGFEM method requires to
-    run; normal vectors, subtriagulations etc. We do note here that this only works for convex elements. This is a
-    guarentee given the PolyMesh object, but user-defined meshes may not work as required.
+    run; normal vectors, subtriagulations etc.
+
+    Attributes:
+
+        mesh (PolyMesh): The underlyting computational domain.
+
+        n_nodes (int): The number of vertices in the mesh.
+        n_elements (int): The number of elements in the mesh.
+
+        nodes (np.ndarray): The vertices of the mesh. This is a variable used for ease later.
+
+        elem_bounding_boxes (typing.Optional[list]): The cartesian bounding boxes of the elements.
+
+        boundary_edges (typing.Optional[np.ndarray]): The indecies of the boundary edges to all edges.
+        boundary_edges_to_element (typing.Optional[np.ndarray]): The conversion from the boundary edges to the elements.
+
+        interior_edges (typing.Optional[np.ndarray]): The indecies of the interior edges to all edges.
+        interior_edges_to_element (typing.Optional[np.ndarray]): The conversion from the interior edges to the elements.
+
+        boundary_normals (typing.Optional[np.ndarray]): The normals to the corresponding boundary edges.
+        interior_normals (typing.Optional[np.ndarray]): The normals to the corresponding interior edges.
+
+        subtriangulation (typing.Optional[np.ndarray]): The subtriagulations of the computational domain.
+        n_triangles (typing.Optional[int]): The number of triangles in the subtriangulation of the computational domain.
+        triangle_to_polygon (typing.Optional[np.ndarray]): The conversion from triangles to polygons.
+
+        h (typing.Optional[float]): The maximal cell diameter.
+        h_s (typing.Optional[np.ndarray]): The array of cell diameters (.h being the maximum of this array).
+        areas (typing.Optional[np.ndarray]): The array of cell areas.
+
+    Methods:
+        save_geometry(...): Save the geometry object to a given file.
+
+    Notes:
+        - We do note here that this only works for convex elements. This is a guarentee given the PolyMesh object, but
+          user-defined meshes may not work as required and may require further computation.
+
     """
 
     def __init__(self, poly_mesh: PolyMesh, **kwargs):
         """
+        Initializes DGFEMGeometry with the given PolyMesh object.
+
         Args:
             poly_mesh (PolyMesh): The polygonal mesh of which to generate the information.
+            **kwargs: Additional keyword arguments. 'time' is the only current option and is used to time the geometry
+            generation.
         """
         self.mesh = poly_mesh
 
         self.n_nodes = poly_mesh.vertices.shape[0]
         self.n_elements = len(poly_mesh.filtered_regions)
 
-        # TODO - these need to go.... use the mesh object? may need to edit th emesh object though?
         self.nodes = poly_mesh.vertices
 
         self.elem_bounding_boxes = None
-        self.n_triangles = None
+
         self.boundary_edges = None
         self.boundary_edges_to_element = None
         self.interior_edges = None
@@ -43,9 +81,8 @@ class DGFEMGeometry:
         self.interior_normals = None
 
         self.subtriangulation = None
+        self.n_triangles = None
         self.triangle_to_polygon = None
-        self.interior_edges_to_triangle = None
-        self.boundary_edges_to_triangle = None
 
         self.h: typing.Optional[float] = None
         self.h_s: typing.Optional[np.ndarray] = None
@@ -57,12 +94,23 @@ class DGFEMGeometry:
 
         _time = time.time()
 
-        self.generate()
+        self._generate()
 
         if time_generation:
             print(f"Time taken to generate geometry: {time.time() - _time}s")
 
-    def generate(self, max_n: int = 20):
+    def _generate(self, max_n: int = 20) -> None:
+        """
+        This method generates all the necessary information of the geometry to run DGFEM methods.
+
+        Args:
+            max_n (int): The maximum number of subtriangles of an element expected.
+
+        Notes:
+            - The parameter 'max_n' is aimed at optimisation. For meshes with many sided elements, this may need to be
+              increased to be able to function correctly. Automation of this is an upcoming update.
+
+        """
         self.nodes *= 1e8
         self.nodes /= 1e8
 
@@ -128,6 +176,7 @@ class DGFEMGeometry:
         self.triangle_to_polygon = tri_to_poly
         self.subtriangulation = subtriangulation
         self.elem_bounding_boxes = elem_bounding_boxes
+        self.n_triangles = subtriangulation.shape[0]
 
         total_edge_x = total_edge_x.flatten(order="F")
         total_edge_y = total_edge_y.flatten(order="F")
@@ -145,6 +194,8 @@ class DGFEMGeometry:
 
         self.boundary_edges = np.concatenate((j[s == 1, np.newaxis], i[s == 1, np.newaxis]), axis=1)
         self.interior_edges = np.concatenate((j[s == 2, np.newaxis], i[s == 2, np.newaxis]), axis=1)
+
+        # Edges to elements
 
         edge_to_elements = {}
 
@@ -180,8 +231,8 @@ class DGFEMGeometry:
         bd_tan_vec[:, 1] *= -1
         bd_nor_vec = np.divide(bd_tan_vec, bd_normalisation_consts[:, np.newaxis])
 
-        bd_outward = self.nodes[self.boundary_edges[:, 0], :] - \
-                     self.mesh.filtered_points[self.boundary_edges_to_element.flatten(order='F'), :]
+        bd_outward = (self.nodes[self.boundary_edges[:, 0], :] -
+                      self.mesh.filtered_points[self.boundary_edges_to_element.flatten(order='F'), :])
 
         bd_index = np.maximum(np.sum(bd_nor_vec * bd_outward, axis=1), 0)
         i = np.argwhere(bd_index == 0)
@@ -203,181 +254,16 @@ class DGFEMGeometry:
         self.boundary_normals = bd_nor_vec
         self.interior_normals = int_nor_vec
 
-        # Information for the subtriangulation
-
-        self.n_triangles = subtriangulation.shape[0]
-
-        edge_to_triangles = {}
-
-        for idx, triangle in enumerate(self.subtriangulation):
-            edges = [
-                (min(a, b), max(a, b))
-                for i, a in enumerate(triangle) for b in triangle[i + 1:]
-            ]
-
-            for edge in edges:
-                if edge in edge_to_triangles:
-                    edge_to_triangles[edge].append(idx)
-                else:
-                    edge_to_triangles[edge] = [idx]
-
-        temp_int = []
-
-        for edge in list(self.interior_edges):
-            temp_int.append(sorted(edge_to_triangles.get(tuple(edge))))
-
-        self.interior_edges_to_triangle = np.array(temp_int)
-
-        temp_bound = []
-
-        for edge in self.boundary_edges:
-            temp_bound.append(*edge_to_triangles.get(tuple(edge)))
-
-        self.boundary_edges_to_triangle = np.array(temp_bound)
-
     def save_geometry(self, filepath: str, save_mesh: bool = False):
+        """
+        Thie function allows saving of the geometry in a .pkl file.
+
+        Args:
+            filepath (str): The filepath which the data is to be saved.
+            save_mesh (bool): Whether the mesh object should also be saved if not saved already.
+
+        """
         with open(filepath, "wb") as file:
             pickle.dump({k: v for k, v in self.__dict__.items() if k != ('mesh' if save_mesh else '')}, file)
 
-
-# Section: Testing
-
-# from poly_mesher.poly_mesher_domain import RectangleDomain
-# from poly_mesher.poly_mesher_main import poly_mesher
-# from poly_mesher.poly_mesher_clean import poly_mesher_cleaner
-# from poly_mesher.show_mesh import show_mesh
-# import matplotlib.pyplot as plt
-# from matplotlib.patches import Polygon
-
-# np.random.seed(1337)
-
-# domain = RectangleDomain(bounding_box=np.array([[0, 1], [0, 1]]))
-# voronoi = poly_mesher(domain, max_iterations=100, n_points=10)
-# pseudo_voronoi = poly_mesher_cleaner(voronoi)
-#
-# ouput = GeneralGeometry(pseudo_voronoi)
-
-# show_mesh(pseudo_voronoi.vertices, pseudo_voronoi.filtered_regions, bounding_box=np.array([[0, 1], [0, 1]]))
-# show_mesh(ouput.nodes, ouput.subtriangulation, bounding_box=np.array([[0, 1], [0, 1]]))
-#
-#
-# # Test triangle to polygon
-#
-# fig, ax = plt.subplots()
-# for k, element in enumerate(ouput.subtriangulation):
-#     ax.add_patch(Polygon(ouput.nodes[element, :], linewidth=1.0, edgecolor="black"))
-#     centroid = np.mean(ouput.nodes[element, :], axis=0)
-#     ax.annotate(f"{ouput.triangle_to_polygon[k]}", centroid)
-#
-# ax.set_xlim(domain.bounding_box[0, :])
-# ax.set_ylim(domain.bounding_box[1, :])
-#
-# plt.show()
-#
-# # Test boundary edges + normals
-#
-# fig, ax = plt.subplots()
-# for k, edge in enumerate(ouput.boundary_edges):
-#     ax.plot(ouput.nodes[edge, 0], ouput.nodes[edge, 1], 'o', ls='-', ms=8, c="r")
-#     centroid = np.mean(ouput.nodes[edge, :], axis=0)
-#     ax.quiver(*centroid, *ouput.boundary_normals[k])
-#
-# plt.show()
-#
-# # Test interior edges + normals
-#
-# fig, ax = plt.subplots()
-# for k, edge in enumerate(ouput.interior_edges):
-#     ax.plot(ouput.nodes[edge, 0], ouput.nodes[edge, 1], 'o', ls='-', ms=8, c="r")
-#     centroid = np.mean(ouput.nodes[edge, :], axis=0)
-#     ax.quiver(*centroid, *ouput.interior_normals[k])
-#
-# plt.show()
-#
-# # Test boundary edges to element
-#
-# fig, ax = plt.subplots()
-#
-# for k, element in enumerate(ouput.elements):
-#     centroid = np.mean(ouput.nodes[element, :], axis=0)
-#     ax.annotate(f"{k}", centroid)
-#
-# for k, edge in enumerate(ouput.boundary_edges):
-#     ax.plot(ouput.nodes[edge, 0], ouput.nodes[edge, 1], 'o', ls='-', ms=8, c="r")
-#     centroid = np.mean(ouput.nodes[edge, :], axis=0)
-#     ax.annotate(f"{ouput.boundary_edges_to_element[k]}", centroid)
-#
-# ax.set_xlim(domain.bounding_box[0, :])
-# ax.set_ylim(domain.bounding_box[1, :])
-#
-# plt.show()
-#
-# # Test interior edges to element
-#
-# fig, ax = plt.subplots()
-#
-# for k, element in enumerate(ouput.elements):
-#     centroid = np.mean(ouput.nodes[element, :], axis=0)
-#     ax.annotate(f"{k}", centroid)
-#
-# for k, edge in enumerate(ouput.interior_edges):
-#     ax.plot(ouput.nodes[edge, 0], ouput.nodes[edge, 1], 'o', ls='-', ms=8, c="r")
-#     centroid = np.mean(ouput.nodes[edge, :], axis=0)
-#     ax.annotate(f"{ouput.interior_edges_to_element[k]}", centroid)
-#
-# ax.set_xlim(domain.bounding_box[0, :])
-# ax.set_ylim(domain.bounding_box[1, :])
-#
-# plt.show()
-#
-# Test boundary edge triangle
-#
-# fig, ax = plt.subplots()
-#
-# for k, element in enumerate(ouput.subtriangulation):
-#     ax.add_patch(Polygon(ouput.nodes[element, :], linewidth=1.0, edgecolor="black"))
-#     centroid = np.mean(ouput.nodes[element, :], axis=0)
-#     ax.annotate(f"{k}", centroid)
-#
-# for k, edge in enumerate(ouput.boundary_edge_triangle):
-#     ax.plot(ouput.nodes[edge, 0], ouput.nodes[edge, 1], 'o', ls='-', ms=8, c="r")
-#     centroid = np.mean(ouput.nodes[edge, :], axis=0)
-#     ax.annotate(f"{ouput.boundary_edges_to_element_triangle[k]}", centroid)
-#
-# plt.show()
-#
-# # Test interior edge triangle
-#
-# fig, ax = plt.subplots()
-#
-# for k, element in enumerate(ouput.subtriangulation):
-#     ax.add_patch(Polygon(ouput.nodes[element, :], linewidth=1.0, edgecolor="black"))
-#     centroid = np.mean(ouput.nodes[element, :], axis=0)
-#     ax.annotate(f"{k}", centroid)
-#
-# for k, edge in enumerate(ouput.interior_edge_triangle):
-#     ax.plot(ouput.nodes[edge, 0], ouput.nodes[edge, 1], 'o', ls='-', ms=8, c="r")
-#     centroid = np.mean(ouput.nodes[edge, :], axis=0)
-#     ax.annotate(f"{ouput.interior_edges_to_element_triangle[k]}", centroid)
-#
-# plt.show()
-#
-# # Test node to triangle element
-#
-# fig, ax = plt.subplots()
-#
-# for k, element in enumerate(ouput.subtriangulation):
-#     ax.add_patch(Polygon(ouput.nodes[element, :], linewidth=1.0, edgecolor="black"))
-#     centroid = np.mean(ouput.nodes[element, :], axis=0)
-#     ax.annotate(f"{k}", centroid)
-#
-#
-# for k in range(ouput.nodes.shape[0]):
-#     ax.plot(ouput.nodes[k, 0], ouput.nodes[k, 1], 'o', ls='-', ms=8, c="r")
-#     ax.annotate(f"{ouput.node_to_triangle_element[k]}", ouput.nodes[k, :])
-#
-#
-# ax.set_xlim(domain.bounding_box[0, :])
-# ax.set_ylim(domain.bounding_box[1, :])
-#
-# plt.show()
+            file.close()

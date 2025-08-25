@@ -189,10 +189,7 @@ for n_r in n_elements:
             forcing=forcing
         )
 
-        if n_r == 8192 and p == 3:
-            cProfile.run('dg.dgfem(solve=True)', sort='cumtime')
-        else:
-            dg.dgfem(solve=True)
+        dg.dgfem(solve=True)
         # dg.plot_DG()
 
         # display_mesh(poly_mesh)
