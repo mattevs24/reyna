@@ -259,8 +259,8 @@ class DGFEM:
             BoundaryInformation: An object containing all the relavent boundary information.
         """
 
-        boundary_information = BoundaryInformation(**kwargs)
-        boundary_information.split_boundaries(self.geometry, self.advection, self.diffusion)
+        boundary_information = BoundaryInformation(self.geometry, **kwargs)
+        boundary_information.split_boundaries(self.advection, self.diffusion)
 
         return boundary_information
 
@@ -606,6 +606,20 @@ class DGFEM:
         return l2_error, dg_error, h1_error
 
     def plot_DG(self):
+        """
+        This function plots the DGFEM solution using Matplotlib. For more customisability, use the 'plot_DG' function in
+        './plotter'. This is a quick reference plotter.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If there is not a populated 'solution' property, this function returns an error.
+
+        Notes:
+            - This function is only able to plot the solutions which are piecewise linear (i.e. polynomial degree 1)
+
+        """
 
         if self.solution is None:
             raise ValueError("Need to provide a solution using either the method '.dgfem' or an external function.")

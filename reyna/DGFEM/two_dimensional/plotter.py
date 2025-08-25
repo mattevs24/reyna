@@ -10,9 +10,22 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import tensor_tensor
 from reyna.DGFEM.two_dimensional._auxilliaries.polygonal_basis_utils import Basis_index2D
 
 
-def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree) -> None:
+def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree: int) -> None:
     """
-    This can only plot the poly_degree = poly_degree_REM = 1 polygonal decompositions.
+    This function plots the DGFEM solution using matplotlib.
+
+    Args:
+        numerical_solution (np.ndarray): The numerical solution of the DGFEM problem. This must be in the form that is
+        outputted from the .dgfem method of the DGFEM class.
+        geometry (DGFEMGeometry): The geometry of the DGFEM problem.
+        poly_degree (int): The highest total degree polynomial space required.
+
+    Returns:
+        None
+
+    Notes:
+        - This function will be recieving large updates in a near update to allow significantly more customisation in
+        the plots themselves as well as saving the plots.
     """
 
     x_min, x_max, y_min, y_max = np.inf, -np.inf, np.inf, -np.inf

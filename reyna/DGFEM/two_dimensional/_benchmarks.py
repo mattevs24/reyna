@@ -1,6 +1,8 @@
 import time
 import csv
 
+import cProfile
+
 import numpy as np
 import matplotlib.pyplot as plt
 from numba import float64
@@ -132,8 +134,12 @@ def diffusion(x):
     return out
 
 
-forcing = lambda x: 2.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
-bcs = lambda x: np.zeros(x.shape[0], dtype=np.float64)
+advection = lambda x: np.ones(x.shape, dtype=float)
+reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
+forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
+                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])) + \
+                    3.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
+
 solution = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 
 
@@ -177,11 +183,16 @@ for n_r in n_elements:
         dg = DGFEM(geometry, polynomial_degree=p)
         dg.add_data(
             diffusion=diffusion,
+            advection=advection,
+            reaction=reaction,
             dirichlet_bcs=solution,
             forcing=forcing
         )
 
-        dg.dgfem(solve=True)
+        if n_r == 8192 and p == 3:
+            cProfile.run('dg.dgfem(solve=True)', sort='cumtime')
+        else:
+            dg.dgfem(solve=True)
         # dg.plot_DG()
 
         # display_mesh(poly_mesh)
