@@ -1,3 +1,8 @@
+"""
+This file is filled with predefined/common domains for use. For more information on the Domain object, see the
+documentation in '_auxilliaries/abstraction' for Domain.
+"""
+
 import math
 import typing
 
@@ -19,10 +24,6 @@ class CircleDomain(Domain):
     def pFix(self) -> typing.Optional[np.ndarray]:
         return self.fixed_points
 
-    def boundary_conditions(self, **kwargs):
-        raise NotImplementedError("This is not a standard method for the CircleDomain class and is"
-                                  " therefore not implemented")
-
     def __init__(self, bounding_box=np.array([[-1, 1], [-1, 1]]), fixed_points=None):
         super().__init__(bounding_box=bounding_box, fixed_points=fixed_points)
         self.center = 0.5 * np.array([[self.bounding_box[0, 1] + self.bounding_box[0, 0],
@@ -43,10 +44,6 @@ class RectangleDomain(Domain):
 
     def pFix(self) -> typing.Optional[np.ndarray]:
         return self.fixed_points
-
-    def boundary_conditions(self, **kwargs):
-        raise NotImplementedError("This is not a standard method for the CircleDomain class and is"
-                                  " therefore not implemented")
 
     def __init__(self, bounding_box, fixed_points=None):
         super().__init__(bounding_box=bounding_box, fixed_points=fixed_points)
@@ -75,10 +72,6 @@ class LShapeDomain(Domain):
         f_ps = np.array([[x_m - h, y_m - h], [x_m + h, y_m + h], [x_m - h, y_m + h]])
         return f_ps
 
-    def boundary_conditions(self, **kwargs):
-        raise NotImplementedError("This is not a standard method for the CircleDomain class and is"
-                                  " therefore not implemented")
-
     def __init__(self):
         super().__init__(bounding_box=np.array([[0, 1], [0, 1]]))
 
@@ -102,9 +95,6 @@ class RectangleCircleDomain(Domain):
     def pFix(self) -> typing.Optional[np.ndarray]:
         return None
 
-    def boundary_conditions(self, **kwargs):
-        return None
-
     def __init__(self):
         super().__init__(bounding_box=np.array([[-2, 2], [-2, 2]]))
 
@@ -124,9 +114,6 @@ class HornDomain(Domain):
     def pFix(self) -> typing.Optional[np.ndarray]:
         return None
 
-    def boundary_conditions(self, **kwargs):
-        return None
-
     def __init__(self):
         super().__init__(bounding_box=np.array([[-1, 1], [0, 1]]))
 
@@ -143,9 +130,6 @@ class CircleCircleDomain(Domain):
         return d
 
     def pFix(self) -> typing.Optional[np.ndarray]:
-        return None
-
-    def boundary_conditions(self, **kwargs):
         return None
 
     def __init__(self):

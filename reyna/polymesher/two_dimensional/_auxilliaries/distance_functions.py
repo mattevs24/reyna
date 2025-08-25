@@ -4,15 +4,26 @@ import matplotlib.pyplot as plt
 
 
 def d_sphere(p: np.ndarray, center: typing.Optional[np.ndarray] = None, radius: float = 1.0) -> np.ndarray:
-    """
-    Input a array of coordinates in ```p``` in the form [p_0; p_1; ...; p_n] for p_i = [x_i, y_i] or [x_i, y_i, z_i].
-     From here, the distance from the center of the sphere is calculated. This will be "translated" by the radius to
-     generate a function which is negative for the interior of the sphere and positive outside of the sphere.
-    :param p: The array of points of the form [p_0; p_1; ...; p_n] for p_i = [x_i, y_i] or [x_i, y_i, z_i].
-    :param center: The center of the spherical domain. If ```None``` inputted, then defaults to the origin for the
-     dimension of the points inputted.
-    :param radius: Radius of the spherical domain required -- defaults to 1.0.
-    :return: An array of distances in the form [d_0, d_0; d_1, d_1; ...; d_n, d_n]
+    """Calculates signed distances from points to a spherical domain.
+
+    Given an array of coordinates `p` in the form `[p_0, p_1, ..., p_n]` where each `p_i` is `[x_i, y_i]` or
+    `[x_i, y_i, z_i]`, this function computes the distance of each point from the center of a sphere. The distances are
+    "translated" by the radius such that they are negative inside the sphere and positive outside.
+
+    Args:
+        p (np.ndarray): Array of points of the form `[p_0, p_1, ..., p_n]` where each `p_i` is `[x_i, y_i]` or
+        `[x_i, y_i, z_i]`.
+        center (np.ndarray, optional): The center of the spherical domain. Defaults to the origin of the corresponding
+        dimension if `None`.
+        radius (float, optional): Radius of the spherical domain. Defaults to `1.0`.
+
+    Returns:
+        np.ndarray: Array of signed distances in the form `[d_0, d_1, ..., d_n]`,
+        where negative values indicate points inside the sphere and positive values outside.
+
+    Raises:
+        Exception: p must contain points of dimention 2 or 3.
+        Exception: center must be of equal dimensio to p.
     """
 
     if center is None:
@@ -36,6 +47,20 @@ def d_sphere(p: np.ndarray, center: typing.Optional[np.ndarray] = None, radius: 
 
 
 def d_rectangle(p: np.ndarray, x1: float, x2: float, y1: float, y2: float) -> np.ndarray:
+    """Calculates signed distances from points to a rectangular domain.
+
+    Given an array of 2D coordinates `p`, this function computes the signed distance of to the rectangular domain.
+
+    Args:
+        p (np.ndarray): Array of 2D points.
+        x1 (float): Lower x bound.
+        x2 (float): Upper x bound.
+        y1 (float): Lower y bound.
+        y2 (float): Upper y bound.
+
+    Returns:
+        np.ndarray: Array of signed distances.
+    """
     d = [x1 - p[:, 0], p[:, 0] - x2, y1 - p[:, 1], p[:, 1] - y2]
     d = np.vstack(d)
     max_d = np.max(d, axis=0)
@@ -44,6 +69,22 @@ def d_rectangle(p: np.ndarray, x1: float, x2: float, y1: float, y2: float) -> np
 
 
 def d_line(p: np.ndarray, x1: float, y1: float, x2: float, y2: float) -> np.ndarray:
+    """Calculates signed distances from points to a line.
+
+        Given an array of 2D coordinates `p`, this function computes the signed distance to a given line. This is a
+        constructor object and can be used to build more complicated domains. Defined with two points which the line
+        passes through. The interior side is defined as the positive normal.
+
+        Args:
+            p (np.ndarray): Array of 2D points.
+            x1 (float): First points x value.
+            y1 (float): First points y value.
+            x2 (float): Second points x value.
+            y2 (float): Second points y value.
+
+        Returns:
+            np.ndarray: Array of signed distances.
+        """
     # tangent vector
     a = np.array([x2 - x1, y2 - y1])
     a = a/np.linalg.norm(a)
@@ -83,28 +124,49 @@ def d_hexagon(p: np.ndarray, x: float = 0.0, y: float = 0.0, scale: float = 1.0)
 
 
 def d_intersect(d1: np.ndarray, d2: np.ndarray) -> np.ndarray:
-    # todo: test this function
 
     d = _d_combination(d1, d2, "max")
     return d
 
 
 def d_union(d1: np.ndarray, d2: np.ndarray) -> np.ndarray:
-    # todo: test this function
 
     d = _d_combination(d1, d2, "min")
     return d
 
 
 def d_difference(d1: np.ndarray, d2: np.ndarray) -> np.ndarray:
-    # todo: test this function
 
     d = _d_combination(d1, d2, "diff")
     return d
 
 
 def _d_combination(d1: np.ndarray, d2: np.ndarray, functionality: str) -> np.ndarray:
-    # todo: test this function alongside the other d_union and d_intersection functions
+    """Combines two distance arrays using a specified operation on their last column.
+
+        This function concatenates the non-last columns of `d1` and `d2` and then applies an operation on the last
+        column of each array according to the `functionality` argument. The resulting array includes all original
+        columns plus the combined last column.
+
+        This is used to construct the more complicated 'd_intersect', 'd_union', and 'd_difference' functions.
+
+        Args:
+            d1 (np.ndarray): First array of distances with shape (n, m1), where the last column is used for the
+            combination operation.
+            d2 (np.ndarray): Second array of distances with shape (n, m2), where the last column is used for the
+            combination operation.
+            functionality (str): Specifies how to combine the last columns of `d1` and `d2`. Supported options are:
+            - "min": Take the element-wise minimum. - "max": Take the element-wise maximum. - "diff": Take the
+            element-wise maximum of `d1` and the negative of `d2`.
+
+        Returns:
+            np.ndarray: Combined array containing the original columns from `d1` and `d2`
+            (excluding their original last columns) and the new last column resulting
+            from the specified combination.
+
+        Raises:
+            ValueError: If `functionality` is not one of "min", "max", or "diff".
+        """
 
     if functionality == "min":
         func_d = np.min(np.concatenate((d1[:, -1][:, np.newaxis], d2[:, -1][:, np.newaxis]), axis=1), axis=1)[:,
@@ -127,26 +189,3 @@ def _d_combination(d1: np.ndarray, d2: np.ndarray, functionality: str) -> np.nda
 
     d = np.concatenate((d, func_d), axis=1)
     return d
-
-
-def main():
-    # out = d_sphere(np.array([[0.1 * i, 0.1 * i] for i in range(-20, 20)]), np.array([0, 0]))
-    x, y = np.meshgrid(np.linspace(-2, 2, 100), np.linspace(-2, 2, 100))
-    x_copy = x.copy()
-    y_copy = y.copy()
-    x = x.reshape((-1, 1))
-    y = y.reshape((-1, 1))
-    out = d_hexagon(np.c_[x, y], -0.5, -0.5, scale=0.2)
-
-    out = out[:, -1].reshape((100, 100))
-
-    out[out < 0.0] = None
-
-    ax = plt.figure().add_subplot(projection='3d')
-    ax.plot_surface(x_copy, y_copy, out)
-    ax.set_zlim(0, 2)
-    plt.show()
-
-
-if __name__ == "__main__":
-    main()

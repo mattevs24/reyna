@@ -94,9 +94,9 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
                 vertices, regions = _poly_mesher_extract_nodes(vertices, regions)
                 vertices, regions = _poly_mesher_collapse_small_edges(vertices, regions, 0.1)
 
-                return PolyMesh(vertices, regions, points, voronoi.ridge_points, domain)
+                return PolyMesh(vertices, regions, points, domain)
 
-            return PolyMesh(vertices, regions, points, voronoi.ridge_points, domain)
+            return PolyMesh(vertices, regions, points, domain)
 
         points, area, error = _poly_mesher_vorocentroid(points, voronoi.vertices, elements)
 
