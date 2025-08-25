@@ -27,32 +27,31 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
     """
     The PolyMesher function. This function generates a bounded Voronoi tesselation of a given domain. The user must
     initialise the function with either the number of elements they require by submitting the 'n_points' keyword
-    argument or initialise with a grid of points by inputting both the 'n_x' and 'n_y' keyword arguments. There is a
-    further verbose argument also.
+    argument or initialise with a grid of points by inputting the 'n_xy' keyword argument. There is a further verbose
+    argument also.
 
     Args:
         domain (Domain): This is a 'Domain' object, be that custom or a pre-defined one.
         max_iterations (int): This is the number of iterations required by the user. Generally, the more iterations, the
         more uniform the elements are in shape and number of edges etc.
+        **kwargs: There are several valid inputs here. 'verbose' has obvious effects and is a boolean value (default
+        False). 'cleaned' cleans up the resulting mesh and removes small numerical artifacts. 'seed' sets a seed for the
+        generation of the initial points. There are two options for the initial points. One can either input 'n_points'
+        to dictate a given number of points or 'n_xy' (of type (int, int)) together to generate a Cartesian mesh.
 
     Returns:
         (PolyMesh): A PolyMesh object containing all the relevant information to be used in a geometry function.
 
     Raises:
-        AttributeError: If the keyword 'n_points' or keywords 'n_x' and 'n_y' are missed.
+        AttributeError: If the keyword 'n_points' or 'n_xy' are missed.
+
+    Notes:
+        - If the 'cleaned' keyword is used, the output mesh is not guarenteed to be a Voronoi diagram.
+
+    See Also:
+        [PolyMesher](https://paulino.princeton.edu/conferences/presentations/11periera_polymesher.pdf)
 
     """
-    if "n_points" in kwargs:
-        n_points = kwargs.pop("n_points")
-        points = _poly_mesher_init_point_set(domain, n_points=n_points)
-
-    elif "n_x" in kwargs and "n_y" in kwargs:
-        n_x = kwargs.pop("n_x")
-        n_y = kwargs.pop("n_y")
-        points = _poly_mesher_init_point_set(domain, n_x=n_x, n_y=n_y)
-
-    else:
-        raise AttributeError("key word error: must be just `n_points` or both `n_x` and `n_y`.")
 
     verbose: bool = False
     if 'verbose' in kwargs:
@@ -61,6 +60,8 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
     cleaned_mesh: bool = False
     if 'cleaned' in kwargs:
         cleaned_mesh = kwargs.pop('cleaned')
+
+    points = _poly_mesher_init_point_set(domain, **kwargs)
 
     fixed_points = domain.pFix()  # from here can call domain.fixed_points -- this initialises the property simult
     if fixed_points is not None:
@@ -109,17 +110,29 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
 
 
 def _poly_mesher_init_point_set(domain: Domain, **kwargs) -> np.ndarray:
+    """
+    The function which defines the initial point set for the poly_mesher function.
+    Args:
+        domain (Domain): The Domain object associated with the computational domain.
+        **kwargs: Keyword arguments. There are several valid inputs here.
+
+    Returns:
+        np.ndarray: The initial point set for the poly_mesher function.
+
+    Raises:
+        AttributeError: If the keyword 'n_points' or 'n_xy' are missed.
+    """
 
     bounding_box = domain.bounding_box
 
-    if "n_points" in kwargs:
+    if 'seed' in kwargs:
+        np.random.seed(kwargs.pop('seed'))
+
+    if 'n_points' in kwargs:
         # This generates a random point set
-        n_points = kwargs.get("n_points")
+        n_points = kwargs.get('n_points')
         points = np.full((n_points, 2), -np.inf)
         s = 0
-        np.random.seed(1337)
-        # TODO: np.random.seed(1337) <- this causes errors sometimes when activated (785) elements in reyna char
-        # TODO: namely this happens for the polygonal geometries?
         while s < n_points:
             p_1 = (bounding_box[0, 1] - bounding_box[0, 0]) * \
                 np.random.uniform(size=(1, n_points)).T + bounding_box[0, 0]
@@ -133,10 +146,9 @@ def _poly_mesher_init_point_set(domain: Domain, **kwargs) -> np.ndarray:
             points[s:s + number_added, :] = p[last_index_negative[:number_added].T.flatten(), :]
             s += number_added
 
-    elif "n_x" in kwargs and "n_y" in kwargs:
+    elif 'n_xy' in kwargs:
         # This generates a uniformly spread point set
-        n_x = kwargs.get("n_x")
-        n_y = kwargs.get("n_y")
+        n_x, n_y = kwargs.get('n_xy')
 
         x = np.linspace(bounding_box[0, 0], bounding_box[0, 1], n_x + 1)
         y = np.linspace(bounding_box[1, 0], bounding_box[1, 1], n_y + 1)
@@ -156,7 +168,18 @@ def _poly_mesher_init_point_set(domain: Domain, **kwargs) -> np.ndarray:
     return points
 
 
-def _poly_mesher_reflect(points: np.ndarray, domain: Domain, area: float) -> (np.ndarray, np.ndarray):
+def _poly_mesher_reflect(points: np.ndarray, domain: Domain, area: float) -> np.ndarray:
+    """
+    This function reflects points near the boundary of the domain to generate a clean boundary.
+
+    Args:
+        points (np.ndarray): The set of points to consider reflecting.
+        domain (Domain): The Domain object associated with the computational domain.
+        area (float): The (approximated) area of the domain.
+
+    Returns:
+        np.ndarray: The reflected points.
+    """
 
     epsilon = 1.0e-8
     n_points = points.shape[0]
@@ -199,6 +222,20 @@ def _poly_mesher_reflect(points: np.ndarray, domain: Domain, area: float) -> (np
 
 
 def _poly_mesher_vorocentroid(points: np.ndarray, vertices, elements) -> (np.ndarray, float, float):
+    """
+    This function computes several related and important features. The element centroids, the numerical total area as
+    well as the error value associated wih non-centroidal Voronoi diagrams.
+
+    Args:
+        points: The set of current Voronoi centres.
+        vertices: The vertices of the current Voronoi diagram.
+        elements: The elements of the current Voronoi diagram.
+
+    Returns:
+        (np.ndarray, float, float): An array of the centroid of the current Voronoi diagram, the numerical total area
+        (i.e. the sum of the areas of the Voronoi elements -- generally not equal to the area of the computational
+        domain) and the error value associated wih non-centroidal Voronoi diagrams.
+    """
 
     n_points = points.shape[0]
     center_points = np.full((n_points, 2), -np.inf)
@@ -216,6 +253,16 @@ def _poly_mesher_vorocentroid(points: np.ndarray, vertices, elements) -> (np.nda
 
 
 def _poly_mesher_extract_nodes(nodes: np.ndarray, filtered_elements: list) -> (np.ndarray, list):
+    """
+    This function extracts the vertices and elements of the Voronoi diagram which are unique.
+    Args:
+        nodes: The vertices of the Voronoi diagram.
+        filtered_elements: The elements of the Voronoi diagram.
+
+    Returns:
+        (np.ndarray, list): Reconstructed nodes and elements which are suitable for numerical methods.
+
+    """
 
     linked_elements = np.array(list((itertools.chain.from_iterable(filtered_elements))))
     unique_ = np.unique(linked_elements)  # these are the points solely used by the elements
@@ -227,6 +274,16 @@ def _poly_mesher_extract_nodes(nodes: np.ndarray, filtered_elements: list) -> (n
 
 
 def _poly_mesher_rebuild_lists(nodes: np.ndarray, elements: list, c_nodes: np.ndarray) -> (np.ndarray, list):
+    """
+    Thie function removes the copied nodes and rebuilts the elements and node sets.
+    Args:
+        nodes: The vertices of the Voronoi diagram.
+        elements: The elements of the Voronoi diagram.
+        c_nodes: The array indicating the operation required for the node in question.
+
+    Returns:
+        (np.ndarray, list): Reconstructed nodes and elements without the duplicate vertices.
+    """
 
     _elems = []
     _, idx, r_idx = np.unique(c_nodes, return_index=True, return_inverse=True)
@@ -252,6 +309,18 @@ def _poly_mesher_rebuild_lists(nodes: np.ndarray, elements: list, c_nodes: np.nd
 
 
 def _poly_mesher_collapse_small_edges(nodes: np.ndarray, elements: list, tolerance: float) -> (np.ndarray, list):
+    """
+    This function deals with small numerical artifacts of LLoyds algorithm. This method is used when 'cleaned' is used
+    as a keyword in the poly_mesher function.
+
+    Args:
+        nodes: The vertices of the Voronoi diagram.
+        elements: The elements of the Voronoi diagram.
+        tolerance: The tolerance parameter associated with the removal of small edges.
+
+    Returns:
+        (np.ndarray, list): Cleaned nodes and elements without small edges.
+    """
 
     while True:
 
