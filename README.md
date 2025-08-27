@@ -74,7 +74,13 @@ points and output tensors of the correct shape; (N, 2, 2), (N, 2), (N,) and (N,)
 example is given
 
 ```python
-diffusion = lambda x: np.repeat([np.identity(2, dtype=float)], x.shape[0], axis=0)
+def diffusion(x):
+    out = np.zeros((x.shape[0], 2, 2), dtype=np.float64)
+    for i in range(x.shape[0]):
+        out[i, 0, 0] = 1.0
+        out[i, 1, 1] = 1.0
+    return out
+
 advection = lambda x: np.ones(x.shape, dtype=float)
 reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
 forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
