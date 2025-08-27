@@ -5,8 +5,6 @@ import cProfile
 
 import numpy as np
 import matplotlib.pyplot as plt
-from numba import float64
-from numpy import dtype
 
 from reyna.polymesher.two_dimensional.domains import CircleDomain, RectangleDomain, CircleCircleDomain
 from reyna.polymesher.two_dimensional.main import poly_mesher
@@ -14,8 +12,7 @@ from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
 from reyna.polymesher.two_dimensional.visualisation import display_mesh
 
-from main import DGFEM
-from plotter import plot_DG
+from reyna.DGFEM.two_dimensional.main import DGFEM
 
 # with open('_benchmark_data/p1.csv', 'r') as csvfile:
 #     data = csv.reader(csvfile, delimiter=',')
@@ -192,9 +189,6 @@ for n_r in n_elements:
 
         dg.dgfem(solve=True)
         # dg.plot_DG()
-
-        # display_mesh(poly_mesh)
-        # plot_DG(dg.solution, dg.geometry, dg.polydegree)
 
         l2_error, dg_error, h1_error = dg.errors(
             exact_solution=solution,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reyna"
-version = "1.2.0"
+version = "1.3.0"
 description = "A minimal overhead, vectorised, polygonal discontinuous Galerkin finite element library."
 authors = [
     { name = "mattevs24", email = "matt.evans2411@gmail.com" }
@@ -16,7 +16,8 @@ dependencies = [
     "numpy>=1.22.0",
     "scipy>=1.4.0",
     "shapely>=2.0.0",
-    "matplotlib>=3.4.0"
+    "matplotlib>=3.4.0",
+    "numba==0.58.1"
 ]
 keywords = [
     "discontinuous", "Galerkin", "finite", "element", "numerics", "methods", "numerical analysis",
@@ -44,6 +45,4 @@ include = ["reyna*"]
 "branding" = ["*"]
 "paper" = ["*"]
 "examples" = ["*"]
-
-[tool.isort]
-skip = ["reyna.DGFEM.two_dimensional._benchmark_data", "reyna.DGFEM/two_dimensional/_benchmarks.py"]
+"tools" = ["*"]
