@@ -103,4 +103,12 @@ experimenting with new discretization strategies and for educators demonstrating
 
 # Acknowledgements
 
+ME would like to acknowledge the support of Ansar Calloo, François Madiot, Tristan Pryer and Luca Zanetti throughout
+this work for thier insights into both the mathematics behind discontinuous Galerkin methods as well as scientific
+and research programming.
+
+ME is supported by scholarships from the Statistical Applied Mathematics at Bath (SAMBa) EPSRC Centre for Doctoral 
+Training (CDT) at the University of Bath under the project EP/S022945/1. ME is also partially funded by the French 
+Alternative Energies and Atomic Energy Commission (CEA). All of this support is gratefully acknowledged.
+
 # References
