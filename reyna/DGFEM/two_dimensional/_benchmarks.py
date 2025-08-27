@@ -173,6 +173,7 @@ for n_r in n_elements:
     # TODO: Need to be careful here -- uncleaned meshes have small boundary edges that mess with calculations
 
     poly_mesh = poly_mesher(dom, max_iterations=10, n_points=n_r, cleaned=True, seed=1337)
+    display_mesh(poly_mesh)
     geometry = DGFEMGeometry(poly_mesh)
     h_s.append(geometry.h)
 

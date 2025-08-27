@@ -22,7 +22,7 @@ def display_mesh(poly_mesh: PolyMesh, **kwargs) -> None:
     if 'figsize' in kwargs:
         figsize = kwargs.pop('figsize', (8, 8))
 
-    color_map = plt.get_cmap('jet')
+    color_map = None
     if 'color_map' in kwargs:
         color_map = kwargs.pop('color_map', None)
 
@@ -33,10 +33,10 @@ def display_mesh(poly_mesh: PolyMesh, **kwargs) -> None:
     color_scheme = kwargs
 
     if not color_scheme:
-        color_scheme = {"alpha": 0.2, "lw": 0.5, "edgecolor": "black", "facecolor": "grey"}
+        color_scheme = {'alpha': 0.2, 'linewidth': 0.5, 'edgecolor': 'black', 'facecolor': 'grey'}
 
     assert (dimension := poly_mesh.filtered_points.shape[1]) == 2, \
-        f"The dimension of the points must be equal to 2 to use this function: the dimention of " \
+        f"The dimension of the points must be equal to 2 to use this function: the dimension of " \
         f"the points inputted is {dimension}"
 
     fig, ax = plt.subplots(figsize=figsize)
