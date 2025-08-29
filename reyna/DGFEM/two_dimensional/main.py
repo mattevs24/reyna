@@ -165,6 +165,9 @@ class DGFEM:
         if self.advection is None and self.diffusion is None:
             raise ValueError('No advection or diffusion specified.')
 
+        # TODO: remove this condition on the dirichlet_bcs if not using the robin ones....change the type of the
+        #  input to assert that it is not optional
+
         if self.dirichlet_bcs is None:
             raise ValueError('Must have Dirichlet boundary conditions.')
 

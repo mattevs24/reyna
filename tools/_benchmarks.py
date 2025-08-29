@@ -35,6 +35,48 @@ from reyna.DGFEM.two_dimensional.main import DGFEM
 # plt.grid(True)
 # plt.show()
 
+# Paper example
+
+dom = CircleCircleDomain()
+
+# Defining the Coefficients
+
+def diffusion(x):
+    out = np.zeros((x.shape[0], 2, 2), dtype=np.float64)
+    for i in range(x.shape[0]):
+        out[i, 0, 0] = 1.0
+        out[i, 1, 1] = 1.0
+    return out
+
+
+advection = lambda x: np.ones(x.shape, dtype=float)
+reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
+forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
+                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])) + \
+                    3.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
+
+bcs = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
+
+# Generating the Mesh and Geometry
+
+poly_mesh = poly_mesher(dom, max_iterations=10, n_points=1024, cleaned=True)
+geometry = DGFEMGeometry(poly_mesh)
+
+# Solving the PDE
+
+dg = DGFEM(geometry, polynomial_degree=1)
+dg.add_data(
+    diffusion=diffusion,
+    advection=advection,
+    reaction=reaction,
+    dirichlet_bcs=bcs,
+    forcing=forcing
+)
+
+dg.dgfem(solve=True)
+
+dg.plot_DG()
+
 
 # Section: advection testing -- tested and happy with this in all cases
 

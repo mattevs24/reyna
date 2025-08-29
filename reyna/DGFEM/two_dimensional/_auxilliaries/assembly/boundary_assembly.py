@@ -1,5 +1,4 @@
 import typing
-import time
 
 import numpy as np
 
@@ -26,7 +25,7 @@ def local_advection_inflow(nodes: np.ndarray,
         advection (typing.Callable[[np.ndarray], np.ndarray]): The advection function.
         dirichlet_bcs (typing.Callable[[np.ndarray], np.ndarray]): The Dirichlet boundary conditions.
     Returns:
-        (np.ndarray, np.ndarray): The local stiffness matrix and forcing vector associated with the local outflow
+        (np.ndarray, np.ndarray): The local stiffness matrix and forcing vector associated with the local inflow
         boundary.
     """
 

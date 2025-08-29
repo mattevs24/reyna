@@ -16,7 +16,7 @@ def error_element(
         grad_u_exact: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
         diffusion: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
         auxilliary_function: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None
-    ) -> (float, float, float):
+        ) -> (float, float, float):
     """
     This function calculates the various norms required over the elements themselves and returns the 'L2 component' of
     the L2 norm, dG norm and the H1 semi-norm.
