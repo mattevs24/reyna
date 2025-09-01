@@ -7,9 +7,10 @@ tags:
   - Polygonal
 authors:
   - name: Matthew Evans
-  - affiliation: 1
+    affiliation: 1
+    corresponding: true
   - name: Tristan Pryer
-  - affiliation: 1
+    affiliation: 1
 affiliations:
  - name: Department of Mathematical Sciences, University of Bath, United Kingdom
    index: 1
