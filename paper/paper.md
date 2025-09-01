@@ -1,5 +1,5 @@
 ---
-title: 'Reyna: A minimal overhead, vectorised, polygonal discontinuous Galerkin finite element library.'
+title: 'Reyna: A minimal overhead polygonal discontinuous Galerkin finite element library.'
 tags:
   - Python
   - Discontinuous Galerkin
@@ -8,11 +8,13 @@ tags:
 authors:
   - name: Matthew Evans
   - affiliation: 1
+  - name: Tristan Pryer
+  - affiliation: 1
 affiliations:
  - name: Department of Mathematical Sciences, University of Bath, United Kingdom
    index: 1
-date: 24 August 2025
-bibliography: paper.bib
+date: 1 September 2025
+bibliography: references.bib
 ---
 
 # Summary
@@ -188,12 +190,14 @@ methods and educators introducing advanced numerical techniques.
 
 # Acknowledgements
 
-ME would like to acknowledge the support of Ansar Calloo, François Madiot, Tristan Pryer and Luca Zanetti throughout
-this work for their insights into both the mathematics behind discontinuous Galerkin methods, as well as scientific
-and research programming.
-
-ME is supported by scholarships from the Statistical Applied Mathematics at Bath (SAMBa) EPSRC Centre for Doctoral 
-Training (CDT) at the University of Bath under the project EP/S022945/1. ME is also partially funded by the French 
-Alternative Energies and Atomic Energy Commission (CEA). All of this support is gratefully acknowledged.
+The authors would like to acknowledge the support of Ansar Calloo,
+François Madiot and Luca Zanetti throughout this work. ME is supported
+by scholarships from the Statistical Applied Mathematics at Bath
+(SAMBa) EPSRC Centre for Doctoral Training (CDT) at the University of
+Bath under the project EP/S022945/1 and is also partially funded by
+the French Alternative Energies and Atomic Energy Commission (CEA). TP
+is supported by the EPSRC programme grant Mathematics of Radiation
+Transport (MaThRad) EP/W026899/2 and the Leverhulme Trust
+RPG-2021-238. All of this support is gratefully acknowledged.
 
 # References
