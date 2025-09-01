@@ -7,6 +7,7 @@ tags:
   - Polygonal
 authors:
   - name: Matthew Evans
+    orcid: 0009-0000-5950-3751
     affiliation: 1
     corresponding: true
   - name: Tristan Pryer
