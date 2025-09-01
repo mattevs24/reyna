@@ -21,8 +21,7 @@ bibliography: references.bib
 
 Partial differential equations (PDEs) underpin much of engineering,
 physics and applied science, providing the basis for simulations
-across a wide range of physical and biological systems. Many
-high-performance numerical schemes are implemented in compiled
+across a wide range of physical and biological systems. Many high-performance numerical schemes are implemented in compiled
 languages, which deliver speed but at the cost of accessibility. These
 implementations are often difficult to adapt or extend, limiting rapid
 experimentation, the development of new methods and their use in
@@ -31,8 +30,7 @@ training.
 Reyna is a Python package for solving second-order PDEs with
 non-negative characteristic form using the polygonal discontinuous
 Galerkin finite element method (DGFEM). It offers a flexible and
-approachable workflow while avoiding the complexity and steep learning
-curve of HPC-focused codebases.
+approachable workflow while avoiding the complexity and steep learning curve of HPC-focused codebases.
 
 Reyna is designed with a modular structure and an optimised
 implementation aiming at balancing clarity with performance. It
@@ -43,7 +41,7 @@ state-of-the-art numerical capability.
 
 # Statement of Need
 
-DGFEMs offer flexibility and high-order accuracy and polygonal
+DGFEMs offer flexibility and high-order accuracy, and polygonal
 elements further extend this adaptability through general meshing and
 refined discretisations. Yet most available implementations are
 embedded in complex C++ or Fortran frameworks, which require
@@ -66,20 +64,16 @@ package supports rapid exploration of new ideas while retaining the
 rigour needed for scientific computation with a particular emphasis on
 clarity and minimal ramp-up time.
 
-The architecture of Reyna (Figure \autoref{fig:architecture}) is
+The architecture of Reyna (\autoref{fig:architecture}) is
 intentionally modular, reflecting the natural workflow of finite
 element methods. It consists of three modules: polymesher, geometry,
 and DGFEM. The polymesher module provides an interface for defining
 polygonal meshes, whether generated internally or supplied by custom
-methods, enabling flexible handling of general domains (see
-@Talischi:2012 for methodology and @Calloo:2025 for an early
-application in neutronics). The geometry module builds on this mesh to
+methods, enabling flexible handling of general domains (see @Talischi:2012 for methodology and @Calloo:2025 for an early application in neutronics). The geometry module builds on this mesh to
 compute the quantities required for discretisation (see @Dong:2020),
 while the DGFEM module assembles and solves the global system (see
 @Cangiani:2014 and @Cangiani:2016 for mathematical details). This
-separation of concerns makes the code easier to extend, for example,
-different meshing algorithms or geometry formulations can be swapped
-in without altering the rest of the pipeline.
+separation of concerns makes the code easier to extend; for example, different meshing algorithms or geometry formulations can be swapped in without altering the rest of the pipeline.
 
 ![Architechture flow diagram of Reyna\label{fig:architechture}](../branding/architechture.png)
 
@@ -91,7 +85,7 @@ transparency, producing compact code that closely follows the
 underlying mathematics through accessible NumPy array
 operations. Simple visualisation tools based on Matplotlib are also
 included, allowing meshes and solutions to be rendered directly in
-scripts or notebooks (Figure \autoref{fig:dg_solution}). For further
+scripts or notebooks (\autoref{fig:dg_solution}). For further
 examples, Reyna ships with Jupyter notebooks as an interactive
 learning resource.
 
@@ -171,19 +165,19 @@ dg.dgfem(solve=True)
 
 ```
 
-This minimal example is fully functional and illustrates flexibility
-and simplicity of the package. Plotting the solution with
-```dg.plot_DG()``` produces \autoref{fig:dg_solution}.
+This minimal example is fully functional and illustrates the flexibility and 
+simplicity of the package. Plotting the solution with ```dg.plot_DG()``` 
+produces \autoref{fig:dg_solution}.
 
 The brevity of this example highlights two advantages of Reyna. First,
 the vectorised design produces concise code that mirrors the
 underlying mathematics, reducing complexity and making it
 straightforward to experiment with new numerical schemes. Second, the
-example is entirely self-contained, which makes it well suited to
+example is entirely self-contained, which makes it well-suited to
 research demonstrations and teaching. The full workflow is visible,
 easy to follow and simple to adapt without low-level setup. While the
 example is kept deliberately short, the implementation remains
-faithful to the full mathematical formulation and users can explore
+faithful to the full mathematical formulation, and users can explore
 these details directly in the code. These qualities make Reyna a
 practical and approachable tool for both researchers developing new
 methods and educators introducing advanced numerical techniques.
