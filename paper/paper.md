@@ -65,7 +65,7 @@ package supports rapid exploration of new ideas while retaining the
 rigour needed for scientific computation with a particular emphasis on
 clarity and minimal ramp-up time.
 
-The architecture of Reyna (\autoref{fig:architecture}) is
+The architecture of Reyna (\autoref{fig:architechture}) is
 intentionally modular, reflecting the natural workflow of finite
 element methods. It consists of three modules: polymesher, geometry,
 and DGFEM. The polymesher module provides an interface for defining
@@ -76,7 +76,7 @@ while the DGFEM module assembles and solves the global system (see
 @Cangiani:2014 and @Cangiani:2016 for mathematical details). This
 separation of concerns makes the code easier to extend; for example, different meshing algorithms or geometry formulations can be swapped in without altering the rest of the pipeline.
 
-![Architechture flow diagram of Reyna\label{fig:architechture}](../branding/architechture.png)
+![Architechture flow diagram of Reyna.\label{fig:architechture}](../branding/architechture.png)
 
 Reyna provides vectorised assembly routines for constructing the
 global stiffness matrix and forcing vector. These routines adapt
