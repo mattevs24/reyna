@@ -1,5 +1,5 @@
 ---
-title: 'Reyna: A minimal overhead polytopal discontinuous Galerkin finite element library.'
+title: 'Reyna: A minimal overhead polytopal discontinuous Galerkin finite element library'
 tags:
   - Python
   - Discontinuous Galerkin
