@@ -1,10 +1,11 @@
 ---
-title: 'Reyna: A minimal overhead polygonal discontinuous Galerkin finite element library.'
+title: 'Reyna: A minimal overhead polytopal discontinuous Galerkin finite element library.'
 tags:
   - Python
   - Discontinuous Galerkin
   - Finite Elements
   - Polygonal
+  - Polytopal
 authors:
   - name: Matthew Evans
     orcid: 0009-0000-5950-3751
@@ -30,7 +31,7 @@ experimentation, the development of new methods and their use in
 training.
 
 Reyna is a Python package for solving second-order PDEs with
-non-negative characteristic form using the polygonal discontinuous
+non-negative characteristic form using the polytopal discontinuous
 Galerkin finite element method (DGFEM). It offers a flexible and
 approachable workflow while avoiding the complexity and steep learning curve of HPC-focused codebases.
 
@@ -43,7 +44,7 @@ state-of-the-art numerical capability.
 
 # Statement of Need
 
-DGFEMs offer flexibility and high-order accuracy, and polygonal
+DGFEMs offer flexibility and high-order accuracy, and polytopal
 elements further extend this adaptability through general meshing and
 refined discretisations. Yet most available implementations are
 embedded in complex C++ or Fortran frameworks, which require
@@ -51,7 +52,7 @@ substantial technical overhead to adapt or extend. This limits their
 use for prototyping and teaching.
 
 Reyna provides a lightweight, vectorised Python framework that makes
-polygonal DGFEMs accessible without sacrificing efficiency. It enables
+polytopal DGFEMs accessible without sacrificing efficiency. It enables
 rapid experimentation, straightforward extension and practical use in
 both research and education by leveraging established scientific
 Python libraries and its modular architecture.
@@ -59,29 +60,32 @@ Python libraries and its modular architecture.
 # Description
 
 Reyna is a lightweight Python library that provides a concise and
-accessible framework for polygonal discontinuous Galerkin finite
+accessible framework for polytopal discontinuous Galerkin finite
 element methods (DGFEM). It gives researchers and educators a tool
 that makes advanced techniques easy to prototype, test and share. The
 package supports rapid exploration of new ideas while retaining the
 rigour needed for scientific computation with a particular emphasis on
 clarity and minimal ramp-up time.
 
-The architecture of Reyna (\autoref{fig:architechture}) is
+The architecture of Reyna (\autoref{fig:architecture}) is
 intentionally modular, reflecting the natural workflow of finite
 element methods. It consists of three modules: polymesher, geometry,
 and DGFEM. The polymesher module provides an interface for defining
-polygonal meshes, whether generated internally or supplied by custom
-methods, enabling flexible handling of general domains (see @Talischi:2012 for methodology and @Calloo:2025 for an early application in neutronics). The geometry module builds on this mesh to
+polytopal meshes, whether generated internally or supplied by custom
+methods, enabling flexible handling of general domains (see @Talischi:2012 
+for methodology and @Calloo:2025 for an early application in neutronics). 
+The geometry module builds on this mesh to
 compute the quantities required for discretisation (see @Dong:2020),
 while the DGFEM module assembles and solves the global system (see
 @Cangiani:2014 and @Cangiani:2016 for mathematical details). This
-separation of concerns makes the code easier to extend; for example, different meshing algorithms or geometry formulations can be swapped in without altering the rest of the pipeline.
+separation of concerns makes the code easier to extend; for example, different meshing algorithms or geometry formulations can be swapped in 
+without altering the rest of the pipeline.
 
-![Architechture flow diagram of Reyna.\label{fig:architechture}](../branding/architechture.png)
+![Architechture flow diagram of Reyna.\label{fig:architecture}](../branding/architecture.png)
 
 Reyna provides vectorised assembly routines for constructing the
 global stiffness matrix and forcing vector. These routines adapt
-automatically to the geometry of each polygonal element without
+automatically to the geometry of each polytopal element without
 significant computational overhead. Reyna combines efficiency with
 transparency, producing compact code that closely follows the
 underlying mathematics through accessible NumPy array
@@ -96,22 +100,21 @@ learning resource.
 The design philosophy is clarity first, a focused codebase with
 minimal dependencies (NumPy, SciPy, Shapely, Numba and Matplotlib)
 written so that users can readily inspect, modify and extend the
-implementation. The combination of polygonal DGFEMs with Python
+implementation. The combination of polytopal DGFEMs with Python
 accessibility makes Reyna a practical platform for researchers
 developing new applications and for educators introducing advanced
 numerical methods.
 
-# Example: 50 lines of DGFEM
+# Example: Minimal Implementation of DGFEM
 
 A key strength of Reyna is the ability to run DGFEM simulations in a
-compact and readable Python style. As an illustration, we provide a
-“DGFEM in 50 lines of code” example, inspired by @Alberty:1999 and
+compact and readable Python style. As an illustration, we provide a 
+minimal example, inspired by @Alberty:1999 and
 @Sutton:2017. Despite its brevity, the implementation captures the
 complete computational workflow of the package.
 
 We consider the exact solution $u(x,y) = \sin(\pi x)\sin(\pi y)$ on
-the ```CircleCircleDomain``` eccentric annular domain. The code below
-solves this problem with diffusion, advection and reaction
+the two-dimensional ```CircleCircleDomain``` eccentric annular domain. The code below solves this problem with diffusion, advection and reaction
 coefficients, together with a forcing term chosen appropriately for
 the exact solution.
 
