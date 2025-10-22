@@ -14,11 +14,13 @@ Boltzmann Transport. arXiv preprint arXiv:2412.01660. (2024)
 
 import itertools
 import time
+import typing
 
 import numpy as np
 
 from scipy.spatial import Voronoi
-from shapely import Polygon
+from numba import njit, f8, i8, types
+from numba.typed import List
 
 from reyna.polymesher.two_dimensional._auxilliaries.abstraction import PolyMesh, Domain
 
@@ -77,17 +79,29 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
 
     while iteration <= max_iterations and error > tolerance:
 
-        _time = time.time()
         reflected_points = _poly_mesher_reflect(points, domain, area)
 
-        voronoi = Voronoi(np.concatenate((points, reflected_points), axis=0), qhull_options='Qbb Qz')
+        center = 0.5 * (bounding_box[:, 0] + bounding_box[:, 1])
+        threshold = 2 * np.sum(bounding_box[:, 1] - bounding_box[:, 0])
 
-        empty_ind = voronoi.regions.index([])
-        sorting = np.argsort(voronoi.point_region)
-        del voronoi.regions[empty_ind]
-        elements = [np.array(voronoi.regions[i]) for i in np.argsort(sorting)]
+        point_set = np.concatenate((points, reflected_points), axis=0)
+        point_set = point_set[np.sum(np.abs(point_set - center), axis=1) < threshold]
+
+        voronoi = Voronoi(point_set, qhull_options='Qbb Qz')
+
+        valid_regions = []
+        region_map = {}
+        for i, r in enumerate(voronoi.regions):
+            if r and (-1 not in r):
+                region_map[i] = len(valid_regions)
+                valid_regions.append(r)
+
+        point_region = [region_map[r] for r in voronoi.point_region if r in region_map]
+
+        elements = List(np.array(valid_regions[i], dtype=np.int64) for i in point_region)
 
         if iteration > max_iterations - 1 or error <= 2.0 * tolerance:
+            # This is the completion conditions are output
             vertices, regions = _poly_mesher_extract_nodes(voronoi.vertices, elements[: points.shape[0]])
 
             if cleaned_mesh:
@@ -221,35 +235,56 @@ def _poly_mesher_reflect(points: np.ndarray, domain: Domain, area: float) -> np.
     return r_ps
 
 
-def _poly_mesher_vorocentroid(points: np.ndarray, vertices, elements) -> (np.ndarray, float, float):
+@njit([(f8[:, :], f8[:, :], types.ListType(i8[::1]))])
+def _poly_mesher_vorocentroid(points: np.ndarray,
+                              vertices: np.ndarray,
+                              elements: typing.List[np.ndarray]
+                              ) -> (np.ndarray, float, float):
     """
     This function computes several related and important features. The element centroids, the numerical total area as
     well as the error value associated wih non-centroidal Voronoi diagrams.
 
     Args:
-        points: The set of current Voronoi centres.
-        vertices: The vertices of the current Voronoi diagram.
-        elements: The elements of the current Voronoi diagram.
+        points (np.ndarray): The set of current Voronoi centres.
+        vertices (np.ndarray): The vertices of the corresponding polygons (often the vertices of the mesh in question).
+        elements (typing.List[np.ndarray]): The list of indecies correspoding to the polygons.
 
     Returns:
         (np.ndarray, float, float): An array of the centroid of the current Voronoi diagram, the numerical total area
         (i.e. the sum of the areas of the Voronoi elements -- generally not equal to the area of the computational
-        domain) and the error value associated wih non-centroidal Voronoi diagrams.
+        domain) and the error value associated with non-centroidal Voronoi diagrams.
     """
 
     n_points = points.shape[0]
-    center_points = np.full((n_points, 2), -np.inf)
-    areas = np.full((n_points,), -np.inf)
+
+    areas = np.empty(n_points)
+    centers = np.empty((n_points, 2))
 
     for i in range(n_points):
-        region = Polygon(vertices[elements[i]])
-        areas[i] = region.area
-        center_points[i, :] = np.array(region.centroid.coords.xy).T.flatten()
+        inds = elements[i]
+        xy = vertices[inds, :]
+        x, y = xy[:, 0], xy[:, 1]
 
-    total_area = areas.sum()
-    error = np.sqrt(np.sum((areas ** 2) * np.sum((center_points - points) ** 2, 1), 0)) * n_points / total_area ** 1.5
+        x1, y1 = np.roll(x, -1), np.roll(y, -1)
+        cross = x * y1 - x1 * y
+        A = 0.5 * np.sum(cross)
 
-    return center_points, total_area, error
+        if A == 0:
+            areas[i] = 0.0
+            centers[i] = (0.0, 0.0)
+            continue
+
+        Cx = np.sum((x + x1) * cross) / (6.0 * A)
+        Cy = np.sum((y + y1) * cross) / (6.0 * A)
+
+        areas[i] = abs(A)
+        centers[i] = (Cx, Cy)
+
+    total_area = np.sum(areas)
+
+    error = np.sqrt(np.sum((areas ** 2) * np.sum((centers - points) ** 2, 1))) * n_points / total_area ** 1.5
+
+    return centers, total_area, error
 
 
 def _poly_mesher_extract_nodes(nodes: np.ndarray, filtered_elements: list) -> (np.ndarray, list):
