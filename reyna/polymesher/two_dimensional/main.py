@@ -20,7 +20,7 @@ import numpy as np
 
 from scipy.spatial import Voronoi
 from numba import njit, f8, i8, types
-from numba.typed import List
+from numba.typed import List, Dict
 
 from reyna.polymesher.two_dimensional._auxilliaries.abstraction import PolyMesh, Domain
 
@@ -89,16 +89,10 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
 
         voronoi = Voronoi(point_set, qhull_options='Qbb Qz')
 
-        valid_regions = []
-        region_map = {}
-        for i, r in enumerate(voronoi.regions):
-            if r and (-1 not in r):
-                region_map[i] = len(valid_regions)
-                valid_regions.append(r)
-
-        point_region = [region_map[r] for r in voronoi.point_region if r in region_map]
-
-        elements = List(np.array(valid_regions[i], dtype=np.int64) for i in point_region)
+        elements = _poly_mesher_postprocessing(
+            List(np.array(region, dtype=np.int64) for region in voronoi.regions),
+            voronoi.point_region
+        )
 
         if iteration > max_iterations - 1 or error <= 2.0 * tolerance:
             # This is the completion conditions are output
@@ -233,6 +227,37 @@ def _poly_mesher_reflect(points: np.ndarray, domain: Domain, area: float) -> np.
         r_ps = np.unique(r_ps, axis=0)
 
     return r_ps
+
+
+@njit([(types.ListType(i8[::1]), i8[:])])
+def _poly_mesher_postprocessing(regions: typing.List[np.ndarray], point_region: np.ndarray) -> typing.List[np.ndarray]:
+
+    region_map = Dict.empty(key_type=types.int64, value_type=types.int64)
+    valid_regions = List()
+
+    for i, r in enumerate(regions):
+        if r.size < 1:
+            continue
+        valid = True
+        for idx in r:
+            if idx < 0:
+                valid = False
+                break
+        if valid:
+            region_map[i] = len(valid_regions)
+            valid_regions.append(r)
+
+    temp_point_region = []
+    for i in range(len(point_region)):
+        r = point_region[i]
+        if r in region_map:
+            temp_point_region.append(region_map[r])
+
+    elements = List()
+    for i in temp_point_region:
+        elements.append(valid_regions[i])
+
+    return elements
 
 
 @njit([(f8[:, :], f8[:, :], types.ListType(i8[::1]))])
