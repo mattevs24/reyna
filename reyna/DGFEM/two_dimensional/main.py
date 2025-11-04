@@ -1,5 +1,6 @@
 import typing
 import time
+import warnings
 
 import numpy as np
 from numba import njit, f8
@@ -110,7 +111,6 @@ class DGFEM:
 
         self.element_reference_quadrature: typing.Optional[typing.Tuple[np.ndarray, np.ndarray]] = None
         self.edge_reference_quadrature: typing.Optional[typing.Tuple[np.ndarray, np.ndarray]] = None
-        self._intialise_quadrature()
 
     def add_data(self,
                  advection: typing.Optional[typing.Callable[[np.ndarray], np.ndarray]] = None,
@@ -162,12 +162,19 @@ class DGFEM:
         self.forcing = njit(f8[:](f8[:, :]))(forcing) if forcing is not None else None
         self.dirichlet_bcs = njit(f8[:](f8[:, :]))(dirichlet_bcs) if dirichlet_bcs is not None else None
 
+        if self.diffusion is not None and self.polydegree == 0:
+            warnings.warn("The polynomial degree given is too low to run diffusion simulations -- adjusted to the "
+                          "minimum viable option (p=1)")
+            self.polydegree += 1
+
         if self.advection is None and self.diffusion is None:
             raise ValueError('No advection or diffusion specified.')
 
         if self.dirichlet_bcs is None:
             raise ValueError('Must have Dirichlet boundary conditions.')
 
+        # TODO: moved the init quadrature here -- make sure this doesn't cause any problems
+        self._intialise_quadrature()
         self.boundary_information = self._define_boundary_information()
 
     def dgfem(self, solve: bool = True, verbose: int = 0):

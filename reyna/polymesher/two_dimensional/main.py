@@ -65,19 +65,19 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
 
     points = _poly_mesher_init_point_set(domain, **kwargs)
 
+    n_fixed = 0
     fixed_points = domain.pFix()  # from here can call domain.fixed_points -- this initialises the property simult
+
     if fixed_points is not None:
         points = np.concatenate((fixed_points, points), axis=0)
         n_fixed = fixed_points.shape[0]
-    else:
-        n_fixed = 0
 
-    iteration, error, tolerance = 0, 1.0, 1e-4
+    iteration, error, tolerance = 0, np.inf, 1e-4
     bounding_box = domain.bounding_box
 
     area = (bounding_box[0, 1] - bounding_box[0, 0]) * (bounding_box[1, 1] - bounding_box[1, 0])
 
-    while iteration <= max_iterations and error > tolerance:
+    while iteration <= max_iterations and error > tolerance:  # I think this line can just be while True....
 
         reflected_points = _poly_mesher_reflect(points, domain, area)
 
@@ -95,10 +95,12 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
         )
 
         if iteration > max_iterations - 1 or error <= 2.0 * tolerance:
-            # This is the completion conditions are output
+            # Convergence/Breaking conditions
             vertices, regions = _poly_mesher_extract_nodes(voronoi.vertices, elements[: points.shape[0]])
 
             if cleaned_mesh:
+                # Optional cleaning step here
+                # TODO: need to remove the 0.1 as input below as not a required input....
                 vertices, regions = _poly_mesher_extract_nodes(vertices, regions)
                 vertices, regions = _poly_mesher_collapse_small_edges(vertices, regions, 0.1)
 
