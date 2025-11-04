@@ -12,6 +12,7 @@ authors:
     affiliation: 1
     corresponding: true
   - name: Tristan Pryer
+    orcid: 0000-0003-4499-0563
     affiliation: 1
 affiliations:
  - name: Department of Mathematical Sciences, University of Bath, United Kingdom
@@ -47,9 +48,10 @@ state-of-the-art numerical capability.
 DGFEMs offer flexibility and high-order accuracy, and polytopal
 elements further extend this adaptability through general meshing and
 refined discretisations. Yet most available implementations are
-embedded in complex C++ or Fortran frameworks, which require
-substantial technical overhead to adapt or extend. This limits their
-use for prototyping and teaching.
+embedded in complex C++ or Fortran frameworks (see MFEM @Anderson:2021, 
+Feel++ @Prud:2012, Dune-FEM-DG @Dedner:2017 and FEMPAR @Badia:2018 for 
+example) which require substantial technical overhead to adapt or extend. 
+This limits their use for prototyping and teaching.
 
 Reyna provides a lightweight, vectorised Python framework that makes
 polytopal DGFEMs accessible without sacrificing efficiency. It enables
@@ -144,9 +146,13 @@ def diffusion(x):
 
 advection = lambda x: np.ones(x.shape, dtype=float)
 reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
-forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
-                             np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])) + \
-                    3.0 * np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
+forcing = lambda x: (np.pi * (np.cos(np.pi * x[:, 0]) *
+                              np.sin(np.pi * x[:, 1]) +
+                              np.sin(np.pi * x[:, 0]) *
+                              np.cos(np.pi * x[:, 1])) +
+                     3.0 * np.pi ** 2 *
+                     np.sin(np.pi * x[:, 0]) *
+                     np.sin(np.pi * x[:, 1]))
 
 bcs = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 
