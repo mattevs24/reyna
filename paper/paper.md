@@ -48,8 +48,8 @@ state-of-the-art numerical capability.
 DGFEMs offer flexibility and high-order accuracy, and polytopal
 elements further extend this adaptability through general meshing and
 refined discretisations. Yet most available implementations are
-embedded in complex C++ or Fortran frameworks (see MFEM @Anderson:2021, 
-Feel++ @Prud:2012, Dune-FEM-DG @Dedner:2017 and FEMPAR @Badia:2018 for 
+embedded in complex C++ or Fortran frameworks (see MFEM by @Anderson:2021, 
+Feel++ by @Prud:2012, Dune-FEM-DG by @Dedner:2017 and FEMPAR by @Badia:2018 for 
 example) which require substantial technical overhead to adapt or extend. 
 This limits their use for prototyping and teaching.
 
