@@ -8,7 +8,7 @@ Galerkin finite elements, providing a flexible and efficient way to approximate 
 - Support for various polygonal element types (e.g., triangles, quadrilaterals, etc.)
 - Easy-to-use API for mesh generation, assembly, and solving PDEs.
 - High performance with optimized solvers for large-scale problems.
-- Supports both linear and nonlinear equations.
+- Supports linear advection-diffusion-reaction equations.
 - Extensible framework: easily integrate custom element types, solvers, or boundary conditions.
 
 ### Installation
