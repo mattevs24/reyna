@@ -49,9 +49,12 @@ DGFEMs offer flexibility and high-order accuracy, and polytopal
 elements further extend this adaptability through general meshing and
 refined discretisations. Yet most available implementations are
 embedded in complex C++ or Fortran frameworks (see MFEM by @Anderson:2021, 
-Feel++ by @Prud:2012, Dune-FEM-DG by @Dedner:2017 and FEMPAR by @Badia:2018 for 
-example) which require substantial technical overhead to adapt or extend. 
-This limits their use for prototyping and teaching.
+Feel++ by @Prud:2012, Dune-FEM-DG by @Dedner:2017 (now including polygonal
+meshes), deal.II by @Bangerth:2007 and FEMPAR by @Badia:2018 for example) which 
+require substantial technical overhead to adapt or extend. Packages such as 
+FEniCS by @alnaes:2015 and Firedrake by @Rathgeber:2016 exist with Python
+interfaces but extensive knowledge is required, limiting their use 
+for prototyping and teaching.
 
 Reyna provides a lightweight, vectorised Python framework that makes
 polytopal DGFEMs accessible without sacrificing efficiency. It enables
