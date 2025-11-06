@@ -28,7 +28,7 @@ from reyna.DGFEM.two_dimensional.plotter import plot_DG
 
 class DGFEM:
     """
-    This class comtains all the methods required for the DGFEM solver.
+    This class contains all the methods required for the DGFEM solver.
 
     Attributes:
         geometry (DGFEMGeometry): The geometry associated with the computation domain for the problem.
@@ -42,7 +42,7 @@ class DGFEM:
         dirichlet_bcs (typing.Optional[typing.Callable[[np.ndarray], np.ndarray]]): The dirichlet boundary conditions.
 
         boundary_information (typing.Optional[BoundaryInformation]): The information associated with the boundary of the
-        computational domain and PDE coefficients.
+            computational domain and PDE coefficients.
         sigma_D (float): The global penalisation coefficient.
 
         orders (typing.Optional[np.ndarray]): The orders of the tensor-Legendre polynomials.
@@ -56,9 +56,9 @@ class DGFEM:
         L (typing.Optional[np.ndarray]): The global forcng vector (populated when .dgfem() method is called).
 
         element_reference_quadrature (typing.Optional[typing.Tuple[np.ndarray, np.ndarray]]): The 2d reference
-        quadrature rule.
+            quadrature rule.
         edge_reference_quadrature (typing.Optional[typing.Tuple[np.ndarray, np.ndarray]]): The 1d reference quadrature
-        rule.
+            rule.
 
     Methods:
         add_data(...): Add the function coefficients for the non-negative characteristic second order PDE.
@@ -67,7 +67,7 @@ class DGFEM:
         plot_DG(...): Plot the DGFEM solution.
 
     See Also:
-        - The reference and example notebooks for examples on how this class is used fully.
+        - See the reference and example notebooks for examples on how this class is used fully.
     """
 
     def __init__(self, geometry: DGFEMGeometry, polynomial_degree: int = 1):
@@ -129,17 +129,17 @@ class DGFEM:
 
         Args:
             advection: The advection component of the PDE. Must be able to handle inputs with dimension (N,2) and output
-            arrays with dimension (N,2). I.e. the N advection coefficients at the given N 2D input locations.
+                arrays with dimension (N,2). I.e. the N advection coefficients at the given N 2D input locations.
             diffusion: The diffusion component of the PDE. Must be able to handle inputs with dimension (N,2) and output
-            arrays with dimension (N,2,2). I.e the N diffusion tensors at the given N 2D input locations. We note that
-            the diffusion tensor must have non-negative characteristic form.
+                arrays with dimension (N,2,2). I.e the N diffusion tensors at the given N 2D input locations. We note
+                that the diffusion tensor must have non-negative characteristic form.
             reaction: The reaction component of the PDE. Must be able to handle inputs with dimension (N,2) and output
-            arrays with dimension (N,). I.e. the N reaction coefficients at the given N 2D input locations.
+                arrays with dimension (N,). I.e. the N reaction coefficients at the given N 2D input locations.
             forcing: The forcing component of the PDE. Must be able to handle inputs with dimension (N,2) and output
-            arrays with dimension (N,). I.e. the N forcing values at the given N 2D input locations.
+                arrays with dimension (N,). I.e. the N forcing values at the given N 2D input locations.
             dirichlet_bcs: The Dirichlet boundary conditions associated with the PDE. Must be able to handle inputs
-            with dimension (N,2) and output arrays with dimension (N,). I.e. the N boundary values at the given N 2D
-            input locations. This can be mixed with relavent Neumann boundary conditions or stand-alone.
+                with dimension (N,2) and output arrays with dimension (N,). I.e. the N boundary values at the given N 2D
+                input locations. This can be mixed with relavent Neumann boundary conditions or stand-alone.
 
         Raises:
             ValueError: If Dirichlet boundary conditions are not present.
@@ -152,7 +152,9 @@ class DGFEM:
             - These functions must also be 'numba' compatible. This means certain 'numpy' functions are not allowed.
 
         See Also:
-            - [numba compatible functions](https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html)
+            Please see here `numba`_ for more documentation on numba compatible functions.
+
+            .. _numba: https://numba.pydata.org/numba-doc/dev/reference/numpysupported.html
 
         """
 
@@ -185,7 +187,7 @@ class DGFEM:
 
         Args:
             solve (bool): This method generates the linear system associated with the DGFEM solution to the inputted
-            problem. Selecting solve will also solve this linear system.
+                problem. Selecting solve will also solve this linear system.
             verbose (int) : This is the verbose level of the method. 0 is no verbose, 1 gives the assembly time.
 
         Returns:
@@ -485,11 +487,11 @@ class DGFEM:
 
         Args:
             exact_solution: The exact solution. Must take in an array of size (N,2) and return an array which
-            outputs values in a (N,) array.
+                outputs values in a (N,) array.
             grad_exact_solution: The gradient of the exact solution. Must take in an array of size (N,2) and
-            return an array which outputs values in a (N,2) array.
+                return an array which outputs values in a (N,2) array.
             div_advection: The divergence of the advection coeffiecient. This is required for the DG norm.
-            This has to take in an array of size (N,2) and return an array which outputs values in a (N,) array.
+                This has to take in an array of size (N,2) and return an array which outputs values in a (N,) array.
 
         Returns:
             (float, float, typing.Optional[float], typing.Optional[dict]): The L2 norm, the DG norm,

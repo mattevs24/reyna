@@ -11,11 +11,13 @@ def display_mesh(poly_mesh: PolyMesh, **kwargs) -> None:
     Args:
         poly_mesh (PolyMesh): A PolyMesh object.
         **kwargs: Additional keyword arguments. There are several valid inputs here. 'figsize', 'color_map' and
-        'save_path' are as expected. Any further keyword arguments are passed as parameters into matplotlib.patches
-        Polygon function.
+            'save_path' are as expected. Any further keyword arguments are passed as parameters into matplotlib.patches
+            Polygon function.
 
     See Also:
-        [matplotlib.patches.Polygon](https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Polygon.html)
+        Please see here `matplotlib.patches.Polygon`_ for more documentation on the keyword arguments.
+
+        .. _matplotlib.patches.Polygon: https://paulino.princeton.edu/conferences/presentations/11periera_polymesher.pdf
 
     """
     figsize: tuple = (8, 8)

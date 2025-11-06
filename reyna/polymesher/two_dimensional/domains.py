@@ -1,6 +1,6 @@
 """
-This file is filled with predefined/common domains for use. For more information on the Domain object, see the
-documentation in '_auxilliaries/abstraction' for Domain.
+This file is filled with predefined/common domains for use. For more information on the Domain object (used as a base
+for all domains), see the documentation in '_auxilliaries/abstraction' for Domain.
 """
 
 import math
@@ -28,8 +28,8 @@ class CircleDomain(Domain):
         super().__init__(bounding_box=bounding_box, fixed_points=fixed_points)
         self.center = 0.5 * np.array([[self.bounding_box[0, 1] + self.bounding_box[0, 0],
                                        self.bounding_box[1, 1] + self.bounding_box[1, 0]]])
-        self.radius = 0.5 * min(self.bounding_box[0, 1] - self.bounding_box[0, 0],
-                                self.bounding_box[1, 1] - self.bounding_box[1, 0])
+        self.radius = 0.5 * min(float(self.bounding_box[0, 1] - self.bounding_box[0, 0]),
+                                float(self.bounding_box[1, 1] - self.bounding_box[1, 0]))
 
 
 class RectangleDomain(Domain):
@@ -38,8 +38,9 @@ class RectangleDomain(Domain):
         return (self.bounding_box[0, 1] - self.bounding_box[0, 0]) * (self.bounding_box[1, 1] - self.bounding_box[1, 0])
 
     def distances(self, points: np.ndarray) -> np.ndarray:
-        d = pmdf.d_rectangle(points, self.bounding_box[0, 0], self.bounding_box[0, 1],
-                             self.bounding_box[1, 0], self.bounding_box[1, 1])
+        d = pmdf.d_rectangle(points,
+                             float(self.bounding_box[0, 0]), float(self.bounding_box[0, 1]),
+                             float(self.bounding_box[1, 0]), float(self.bounding_box[1, 1]))
         return d
 
     def pFix(self) -> typing.Optional[np.ndarray]:
@@ -59,8 +60,8 @@ class LShapeDomain(Domain):
         b_box = self.bounding_box
         x_m = 0.5 * b_box[0, :].sum()
         y_m = 0.5 * b_box[1, :].sum()
-        d_1 = pmdf.d_rectangle(points, b_box[0, 0], b_box[0, 1], b_box[1, 0], b_box[1, 1])
-        d_2 = pmdf.d_rectangle(points, x_m, b_box[0, 1], b_box[1, 0], y_m)
+        d_1 = pmdf.d_rectangle(points, float(b_box[0, 0]), float(b_box[0, 1]), float(b_box[1, 0]), float(b_box[1, 1]))
+        d_2 = pmdf.d_rectangle(points, x_m, float(b_box[0, 1]), float(b_box[1, 0]), y_m)
         d = pmdf.d_difference(d_1, d_2)
         return d
 
@@ -80,14 +81,14 @@ class RectangleCircleDomain(Domain):
 
     def area(self):
         rect = (self.bounding_box[0, 1] - self.bounding_box[0, 0]) * (self.bounding_box[1, 1] - self.bounding_box[1, 0])
-        radius = 0.5 * min(self.bounding_box[0, 1] - self.bounding_box[0, 0],
-                           self.bounding_box[1, 1] - self.bounding_box[1, 0])
+        radius = 0.5 * min(float(self.bounding_box[0, 1] - self.bounding_box[0, 0]),
+                           float(self.bounding_box[1, 1] - self.bounding_box[1, 0]))
         circ = math.pi * (radius ** 2)
         return rect - circ
 
     def distances(self, points: np.ndarray) -> np.ndarray:
         b_box = self.bounding_box
-        d_1 = pmdf.d_rectangle(points, b_box[0, 0], b_box[0, 1], b_box[1, 0], b_box[1, 1])
+        d_1 = pmdf.d_rectangle(points, float(b_box[0, 0]), float(b_box[0, 1]), float(b_box[1, 0]), float(b_box[1, 1]))
         d_2 = pmdf.d_sphere(points)
         d = pmdf.d_difference(d_1, d_2)
         return d

@@ -26,6 +26,7 @@ class Domain(metaclass=ABCMeta):
         """
         The distance function for a domain. This gives some indication of 'how far' a given point is from the boundary
         of the domain. Negative values determine the inside of a domain. This explicitly defines the domain.
+
         Args:
             points (np.ndarray): Points to calculate the distances from.
 
@@ -49,6 +50,7 @@ class Domain(metaclass=ABCMeta):
     def area(self) -> float:
         """
         This function returns the area of a domain.
+
         Returns:
             float: Area of the domain.
         """

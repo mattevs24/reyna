@@ -1,17 +1,3 @@
-"""
-This is the mesh algorithm used for the polygonal meshing. Credits for the orginal code goes to Talischi et al. [1]
-written in Matlab. Several modifications are in place here for efficiency as well as functionality. For example, the
-cleaning function in the original code has several bugs including a tendency to collapse boundary edges. In terms of
-more recent work (see Calloo et al. [2]), we require Voronoi tessellations, a property of which is not retained by the
-cleaning functions. There is the potential for small edges but either more or less iterations fixes this.
-
-[1] Talischi, C., Paulino, G. H., Pereira, A., & Menezes, I. F. PolyMesher: a general-purpose mesh generator for
-polygonal elements written in Matlab. Structural and Multidisciplinary Optimization. (2012)
-
-[2] Calloo, A., Evans, M., Lockyer, H., Madiot, F., Pryer, T., & Zanetti, L. Cycle-Free Polytopal Mesh Sweeping for
-Boltzmann Transport. arXiv preprint arXiv:2412.01660. (2024)
-"""
-
 import itertools
 import time
 import typing
@@ -35,11 +21,12 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
     Args:
         domain (Domain): This is a 'Domain' object, be that custom or a pre-defined one.
         max_iterations (int): This is the number of iterations required by the user. Generally, the more iterations, the
-        more uniform the elements are in shape and number of edges etc.
+            more uniform the elements are in shape and number of edges etc.
         **kwargs: There are several valid inputs here. 'verbose' has obvious effects and is a boolean value (default
-        False). 'cleaned' cleans up the resulting mesh and removes small numerical artifacts. 'seed' sets a seed for the
-        generation of the initial points. There are two options for the initial points. One can either input 'n_points'
-        to dictate a given number of points or 'n_xy' (of type (int, int)) together to generate a Cartesian mesh.
+            False). 'cleaned' cleans up the resulting mesh and removes small numerical artifacts. 'seed' sets a seed for
+            the generation of the initial points. There are two options for the initial points. One can either input
+            'n_points' to dictate a given number of points or 'n_xy' (of type (int, int)) together to generate a
+            Cartesian mesh.
 
     Returns:
         (PolyMesh): A PolyMesh object containing all the relevant information to be used in a geometry function.
@@ -51,7 +38,9 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
         - If the 'cleaned' keyword is used, the output mesh is not guarenteed to be a Voronoi diagram.
 
     See Also:
-        [PolyMesher](https://paulino.princeton.edu/conferences/presentations/11periera_polymesher.pdf)
+        Please see here `PolyMesher`_ for more documentation on PolyMesher.
+
+        .. _PolyMesher: https://paulino.princeton.edu/conferences/presentations/11periera_polymesher.pdf
 
     """
 

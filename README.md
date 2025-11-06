@@ -1,5 +1,7 @@
 # reyna
 
+<!-- index.rst content start -->
+
 A lightweight Python package for solving partial differential equations (PDEs) using polygonal discontinuous 
 Galerkin finite elements, providing a flexible and efficient way to approximate solutions to complex PDEs.
 
@@ -199,12 +201,11 @@ This project is licensed under the MIT License - see the LICENSE.md file for det
 This package was developed by mattevs24 during a PhD programme funded by the French Alternative Energies 
 and Atomic Energy Commission. A Special thanks to the support of Ansar Calloo, Fraçois Madiot throughout
 the PhD so far. A further thank you to my interal supervisors Tristan Pryer and Luca Zanetti for their role
-in this project too and useful feedback on usability and support. Finally, a thank you to my partner
-Reyna who puts up with all this nonsense!
+in this project too and useful feedback on usability and support. Finally, a thank you to Reyna who puts 
+up with all this nonsense!
 
 ## Upcoming Updates
 
 There are many features that remain to add to this code! We hope to add support for the following features
 
-- Mixed-type problems: support for multiple types of PDE on the same domain.
-- Full readthedocs documentation to support the further developement and use of this package.
+- Mixed boundary conditions: support for multiple types of boundary conditions on the same domain.

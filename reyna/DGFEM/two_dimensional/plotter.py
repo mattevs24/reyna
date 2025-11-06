@@ -16,7 +16,7 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
 
     Args:
         numerical_solution (np.ndarray): The numerical solution of the DGFEM problem. This must be in the form that is
-        outputted from the .dgfem method of the DGFEM class.
+            outputted from the .dgfem method of the DGFEM class.
         geometry (DGFEMGeometry): The geometry of the DGFEM problem.
         poly_degree (int): The highest total degree polynomial space required.
 
@@ -25,7 +25,7 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
 
     Notes:
         - This function will be recieving large updates in a near update to allow significantly more customisation in
-        the plots themselves as well as saving the plots.
+          the plots themselves as well as saving the plots.
     """
 
     x_min, x_max, y_min, y_max = np.inf, -np.inf, np.inf, -np.inf
