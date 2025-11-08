@@ -66,7 +66,7 @@ def poly_mesher(domain: Domain, max_iterations: int = 100, **kwargs) -> PolyMesh
 
     area = (bounding_box[0, 1] - bounding_box[0, 0]) * (bounding_box[1, 1] - bounding_box[1, 0])
 
-    while iteration <= max_iterations and error > tolerance:  # I think this line can just be while True....
+    while True:
 
         reflected_points = _poly_mesher_reflect(points, domain, area)
 

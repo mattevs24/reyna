@@ -198,7 +198,7 @@ class DGFEM:
 
         """
 
-        assert 0 <= verbose <= 1, ValueError('"verbose" must be either 0 or 1.')
+        assert 0 <= verbose <= 1, '"verbose" must be either 0 or 1.'
 
         # Generate the basic information for the method, shared by all the methods.
         self.orders = Basis_index2D(self.polydegree)  # Legendre polynomial orders
@@ -512,7 +512,8 @@ class DGFEM:
         # Input validation/cleaning
         if self.reaction is None:
             self.reaction = lambda x: np.zeros(x.shape[0])
-        elif self.advection is None:
+
+        if (self.advection is None) or (div_advection is None):
             div_advection = lambda x: np.zeros(x.shape[0])
 
         auxilliary_function = lambda x: self.reaction(x) - 0.5 * div_advection(x)
