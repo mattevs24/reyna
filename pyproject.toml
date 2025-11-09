@@ -46,3 +46,7 @@ include = ["reyna*"]
 "paper" = ["*"]
 "examples" = ["*"]
 "tools" = ["*"]
+"tests" = ["*"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]

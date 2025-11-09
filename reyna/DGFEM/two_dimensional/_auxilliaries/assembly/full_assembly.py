@@ -139,8 +139,11 @@ def int_localstiff(nodes: np.ndarray,
         # Penalty term
         lambda_dot = normal @ diffusion(mid_point).squeeze() @ normal
 
-        abs_k_b_1 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_1 - nodes[0, :]))))
-        abs_k_b_2 = np.max(0.5 * np.abs(abs(np.cross(nodes[1, :] - nodes[0, :], element_nodes_2 - nodes[0, :]))))
+        aux = nodes[1, :] - nodes[0, :]
+        v1 = element_nodes_1 - nodes[0, :]
+        v2 = element_nodes_2 - nodes[0, :]
+        abs_k_b_1 = np.max(0.5 * np.abs(abs(aux[0] * v1[1] - aux[1] * v1[0])))
+        abs_k_b_2 = np.max(0.5 * np.abs(abs(aux[0] * v2[1] - aux[1] * v2[0])))
 
         # Assuming p-coverability
         c_inv_1 = min(k_1_area / abs_k_b_1, polydegree ** 2)

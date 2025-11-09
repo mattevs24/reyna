@@ -18,7 +18,7 @@ class TestPolyMesher:
     def test_number_of_elements_grid(self):
         """ Tests the number of elements for a grid point set. """
         n = 8
-        dom = CircleCircleDomain()
+        dom = RectangleDomain(np.array([[0, 1], [0, 1]]))
         mesh = poly_mesher(dom, n_xy=(n, n))
 
         assert len(mesh.filtered_regions) == 64, 'Mesh does not contain 64 elements as expected'

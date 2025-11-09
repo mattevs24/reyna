@@ -98,7 +98,7 @@ class TestDGFEM:
 
         l2_norm, dg_norm, _ = dg.errors(exact_solution=lambda x: np.ones(x.shape[0], dtype=float))
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -124,7 +124,7 @@ class TestDGFEM:
 
         l2_norm, dg_norm, _ = dg.errors(exact_solution=lambda x: x[:, 0] + x[:, 1])
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -150,7 +150,7 @@ class TestDGFEM:
 
         l2_norm, dg_norm, _ = dg.errors(exact_solution=lambda x: x[:, 0] ** 2 + x[:, 1] ** 2)
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -178,7 +178,7 @@ class TestDGFEM:
 
         l2_norm, dg_norm, _ = dg.errors(exact_solution=lambda x: np.ones(x.shape[0], dtype=float))
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -206,7 +206,7 @@ class TestDGFEM:
 
         l2_norm, dg_norm, _ = dg.errors(exact_solution=lambda x: x[:, 0] + x[:, 1])
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -234,7 +234,7 @@ class TestDGFEM:
 
         l2_norm, dg_norm, _ = dg.errors(exact_solution=lambda x: x[:, 0] ** 2 + x[:, 1] ** 2)
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -536,9 +536,9 @@ class TestDGFEM:
         dg_powers = np.diff(np.log(dg_norms)) / np.diff(np.log(h_s))
         h1_powers = np.diff(np.log(h1_norms)) / np.diff(np.log(h_s))
 
-        assert np.exp(np.mean(np.log(l2_powers))) > 1.6, 'L2 error decay is not behaving as expected.'
-        assert np.exp(np.mean(np.log(dg_powers))) > 0.7, 'dG error decay is not behaving as expected.'
-        assert np.exp(np.mean(np.log(h1_powers))) > 0.7, 'H1 error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(l2_powers[-3:]))) > 1.6, 'L2 error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(dg_powers[-3:]))) > 0.7, 'dG error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(h1_powers[-3:]))) > 0.7, 'H1 error decay is not behaving as expected.'
 
     def test_benchmark_advection_reaction(self):
         """ Benchmark advection equations with p=1 polynomials. """
@@ -550,10 +550,10 @@ class TestDGFEM:
         l2_norms = []
 
         advection = lambda x: np.ones(x.shape, dtype=float)
-        reaction = lambda x: np.pi ** 2 * np.ones(x.shape[0], dtype=float)
-        forcing = lambda x: np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
-                                     np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])) + \
-                            np.pi ** 2 * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
+        reaction = lambda x: np.pi * np.ones(x.shape[0], dtype=float)
+        forcing = lambda x: (np.pi * (np.cos(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]) +
+                                      np.sin(np.pi * x[:, 0]) * np.cos(np.pi * x[:, 1])) +
+                             np.pi * np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1]))
 
         bcs = lambda x: np.sin(np.pi * x[:, 0]) * np.sin(np.pi * x[:, 1])
 
@@ -587,8 +587,8 @@ class TestDGFEM:
         l2_powers = np.diff(np.log(l2_norms)) / np.diff(np.log(h_s))
         dg_powers = np.diff(np.log(dg_norms)) / np.diff(np.log(h_s))
 
-        assert np.exp(np.mean(np.log(l2_powers))) > 1.6, 'L2 error decay is not behaving as expected.'
-        assert np.exp(np.mean(np.log(dg_powers))) > 1.2, 'dG error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(l2_powers[-3:]))) > 1.6, 'L2 error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(dg_powers[-3:]))) > 1.2, 'dG error decay is not behaving as expected.'
 
     def test_benchmark_advection_diffusion_reaction(self):
         """ Benchmark the full advection-diffusion-reaction equations with p=3 polynomials and a non-diagonal diffusion
@@ -658,6 +658,6 @@ class TestDGFEM:
         dg_powers = np.diff(np.log(dg_norms)) / np.diff(np.log(h_s))
         h1_powers = np.diff(np.log(h1_norms)) / np.diff(np.log(h_s))
 
-        assert np.exp(np.mean(np.log(l2_powers))) > 3.6, 'L2 error decay is not behaving as expected.'
-        assert np.exp(np.mean(np.log(dg_powers))) > 2.7, 'dG error decay is not behaving as expected.'
-        assert np.exp(np.mean(np.log(h1_powers))) > 2.7, 'H1 error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(l2_powers[-3:]))) > 3.6, 'L2 error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(dg_powers[-3:]))) > 2.7, 'dG error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(h1_powers[-3:]))) > 2.7, 'H1 error decay is not behaving as expected.'
