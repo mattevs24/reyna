@@ -299,7 +299,7 @@ class TestDGFEM:
     def test_diffusion_linear_solution_polynomial_degree_one(self):
         """ Test to see if linear solutions are captured exactly for diffusion equations with p=1 polynomials. """
 
-        dom = HornDomain()
+        dom = CircleDomain()
         mesh = poly_mesher(dom, n_points=256)
 
         geometry = DGFEMGeometry(mesh)
@@ -589,3 +589,75 @@ class TestDGFEM:
 
         assert np.exp(np.mean(np.log(l2_powers))) > 1.6, 'L2 error decay is not behaving as expected.'
         assert np.exp(np.mean(np.log(dg_powers))) > 1.2, 'dG error decay is not behaving as expected.'
+
+    def test_benchmark_advection_diffusion_reaction(self):
+        """ Benchmark the full advection-diffusion-reaction equations with p=3 polynomials and a non-diagonal diffusion
+        tensor. """
+
+        n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+
+        domain = RectangleDomain(np.array([[0, 1], [0, 1]]))
+
+        h_s = []
+        dg_norms = []
+        l2_norms = []
+        h1_norms = []
+
+        solution = lambda x: 0.5 * np.exp(1.0 - x[:, 0]) * np.exp(x[:, 1] - 1)
+
+        def grad_solution(x: np.ndarray):
+            u_x = -0.5 * np.exp(1.0 - x[:, 0]) * np.exp(x[:, 1] - 1)
+            u_y = 0.5 * np.exp(1.0 - x[:, 0]) * np.exp(x[:, 1] - 1)
+
+            return np.vstack((u_x, u_y)).T
+
+        def diffusion(x):
+            out = np.zeros((x.shape[0], 2, 2), dtype=np.float64)
+            for i in range(x.shape[0]):
+                out[i, 0, 0] = 2.0
+                out[i, 1, 0] = 1.0
+                out[i, 0, 1] = 1.0
+                out[i, 1, 1] = 2.0
+            return out
+
+        def advection(x: np.ndarray):
+            u_x = 2.0 * np.ones(x.shape[0], dtype=float)
+            u_y = np.ones(x.shape[0], dtype=float)
+
+            return np.vstack((u_x, u_y)).T
+
+        reaction = lambda x: 2 * np.ones(x.shape[0], dtype=float)
+        forcing = lambda x: -0.5 * np.exp(1.0 - x[:, 0]) * np.exp(x[:, 1] - 1)
+
+        for n_r in n_elements:
+            poly_mesh = poly_mesher(domain, max_iterations=10, n_points=n_r)
+            geometry = DGFEMGeometry(poly_mesh)
+
+            dg = DGFEM(geometry, polynomial_degree=3)
+            dg.add_data(
+                diffusion=diffusion,
+                advection=advection,
+                reaction=reaction,
+                dirichlet_bcs=solution,
+                forcing=forcing
+            )
+
+            dg.dgfem(solve=True)
+
+            l2_error, dg_error, h1_error = dg.errors(
+                exact_solution=solution,
+                grad_exact_solution=grad_solution,
+            )
+
+            h_s.append(geometry.h)
+            l2_norms.append(l2_error)
+            dg_norms.append(dg_error)
+            h1_norms.append(h1_error)
+
+        l2_powers = np.diff(np.log(l2_norms)) / np.diff(np.log(h_s))
+        dg_powers = np.diff(np.log(dg_norms)) / np.diff(np.log(h_s))
+        h1_powers = np.diff(np.log(h1_norms)) / np.diff(np.log(h_s))
+
+        assert np.exp(np.mean(np.log(l2_powers))) > 3.6, 'L2 error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(dg_powers))) > 2.7, 'dG error decay is not behaving as expected.'
+        assert np.exp(np.mean(np.log(h1_powers))) > 2.7, 'H1 error decay is not behaving as expected.'
