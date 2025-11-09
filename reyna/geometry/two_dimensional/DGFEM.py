@@ -238,21 +238,24 @@ class DGFEMGeometry:
         i = np.argwhere(bd_index == 0)
         bd_nor_vec[i, :] = -bd_nor_vec[i, :]
 
-        int_tan_vec = self.nodes[self.interior_edges[:, 0], :] - self.nodes[self.interior_edges[:, 1], :]
-        int_normalisation_consts = np.sqrt(int_tan_vec[:, 0] ** 2 + int_tan_vec[:, 1] ** 2)
-
-        int_tan_vec = np.roll(int_tan_vec, -1, axis=1)
-        int_tan_vec[:, 1] *= -1
-        int_nor_vec = np.divide(int_tan_vec, int_normalisation_consts[:, np.newaxis])
-
-        int_outward = self.mesh.filtered_points[self.interior_edges_to_element[:, 1], :] - \
-            self.mesh.filtered_points[self.interior_edges_to_element[:, 0], :]
-
-        int_index = np.sum(int_nor_vec * int_outward, axis=1) < 0.0
-        int_nor_vec[int_index, :] = -int_nor_vec[int_index, :]
-
         self.boundary_normals = bd_nor_vec
-        self.interior_normals = int_nor_vec
+
+        if self.interior_edges.shape[0] > 1:
+            # One element is not guarenteed to have any interior edges
+
+            int_tan_vec = self.nodes[self.interior_edges[:, 0], :] - self.nodes[self.interior_edges[:, 1], :]
+            int_normalisation_consts = np.sqrt(int_tan_vec[:, 0] ** 2 + int_tan_vec[:, 1] ** 2)
+
+            int_tan_vec = np.roll(int_tan_vec, -1, axis=1)
+            int_tan_vec[:, 1] *= -1
+            int_nor_vec = np.divide(int_tan_vec, int_normalisation_consts[:, np.newaxis])
+
+            int_outward = self.mesh.filtered_points[self.interior_edges_to_element[:, 1], :] - \
+                self.mesh.filtered_points[self.interior_edges_to_element[:, 0], :]
+
+            int_index = np.sum(int_nor_vec * int_outward, axis=1) < 0.0
+            int_nor_vec[int_index, :] = -int_nor_vec[int_index, :]
+            self.interior_normals = int_nor_vec if self.interior_edges.shape[0] > 1 else np.zeros((0, 2), dtype=float)
 
     def save_geometry(self, filepath: str, save_mesh: bool = False):
         """

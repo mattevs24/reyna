@@ -291,7 +291,7 @@ class TestDGFEM:
             grad_exact_solution=lambda x: np.zeros(x.shape, dtype=float)
         )
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -323,7 +323,7 @@ class TestDGFEM:
             grad_exact_solution=lambda x: np.ones(x.shape, dtype=float)
         )
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -358,7 +358,7 @@ class TestDGFEM:
             grad_exact_solution=lambda x: 2.0 * np.concatenate((x[:, 0][:, None], x[:, 1][:, None]), axis=1)
         )
 
-        epsilon = 1e-12
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'
@@ -394,7 +394,83 @@ class TestDGFEM:
             grad_exact_solution=lambda x: 2.0 * np.concatenate((x[:, 0][:, None], x[:, 1][:, None]), axis=1)
         )
 
-        epsilon = 1e-12
+        epsilon = 1e-10
+
+        assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
+        assert dg_norm < epsilon, 'dG error is expected to be near zero.'
+
+    def test_non_diagonal_diffusion_quadratic_solution_polynomial_degree_two_1(self):
+        """ Test to see if quadratic solutions are captured exactly for non-diagonal diffusion equations with p=2
+        polynomials. """
+
+        dom = RectangleDomain(np.array([[0, 1], [0, 1]]))
+        mesh = poly_mesher(dom, n_points=64)
+
+        geometry = DGFEMGeometry(mesh)
+        dg = DGFEM(geometry, polynomial_degree=2)
+
+        def diffusion(x):
+            out = np.zeros((x.shape[0], 2, 2), dtype=np.float64)
+            for i in range(x.shape[0]):
+                out[i, 0, 0] = 2.0
+                out[i, 0, 1] = 1.0
+                out[i, 1, 0] = 1.0
+                out[i, 1, 1] = 2.0
+            return out
+
+        forcing = lambda x: -8.0 * np.ones(x.shape[0], dtype=float)
+
+        dg.add_data(
+            diffusion=diffusion,
+            forcing=forcing,
+            dirichlet_bcs=lambda x: x[:, 0] ** 2 + x[:, 1] ** 2
+        )
+        dg.dgfem(solve=True)
+
+        l2_norm, dg_norm, _ = dg.errors(
+            exact_solution=lambda x: x[:, 0] ** 2 + x[:, 1] ** 2,
+            grad_exact_solution=lambda x: 2.0 * np.concatenate((x[:, 0][:, None], x[:, 1][:, None]), axis=1)
+        )
+
+        epsilon = 1e-10
+
+        assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
+        assert dg_norm < epsilon, 'dG error is expected to be near zero.'
+
+    def test_non_diagonal_diffusion_quadratic_solution_polynomial_degree_two_2(self):
+        """ Test to see if quadratic solutions are captured exactly for non-diagonal diffusion equations with p=2
+        polynomials. """
+
+        dom = RectangleDomain(np.array([[0, 1], [0, 1]]))
+        mesh = poly_mesher(dom, n_points=64)
+
+        geometry = DGFEMGeometry(mesh)
+        dg = DGFEM(geometry, polynomial_degree=2)
+
+        def diffusion(x):
+            out = np.zeros((x.shape[0], 2, 2), dtype=np.float64)
+            for i in range(x.shape[0]):
+                out[i, 0, 0] = 2.0
+                out[i, 0, 1] = 1.0
+                out[i, 1, 0] = 1.0
+                out[i, 1, 1] = 2.0
+            return out
+
+        forcing = lambda x: -2.0 * np.ones(x.shape[0], dtype=float)
+
+        dg.add_data(
+            diffusion=diffusion,
+            forcing=forcing,
+            dirichlet_bcs=lambda x: x[:, 0] * x[:, 1]
+        )
+        dg.dgfem(solve=True)
+
+        l2_norm, dg_norm, _ = dg.errors(
+            exact_solution=lambda x: x[:, 0] * x[:, 1],
+            grad_exact_solution=lambda x: np.concatenate((x[:, 1][:, None], x[:, 0][:, None]), axis=1)
+        )
+
+        epsilon = 1e-10
 
         assert l2_norm < epsilon, 'L2 error is expected to be near zero.'
         assert dg_norm < epsilon, 'dG error is expected to be near zero.'

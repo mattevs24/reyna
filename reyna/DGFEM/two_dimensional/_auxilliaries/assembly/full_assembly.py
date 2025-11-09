@@ -150,33 +150,35 @@ def int_localstiff(nodes: np.ndarray,
         # Assuming not p-coverable
         # sigma = sigma_D * lambda_dot * polydegree ** 2 * (2 * De) * max(1.0 / abs_k_b_1, 1.0 / abs_k_b_2)
 
-        gradtensor_leg_array = np.stack(
-            (tensor_gradtensor_leg(P_Qpoints, m1, h1, orders),
-             tensor_gradtensor_leg(P_Qpoints, m2, h2, orders)), axis=1)
+        grad_u1 = tensor_gradtensor_leg(P_Qpoints, m1, h1, orders)
+        grad_u2 = tensor_gradtensor_leg(P_Qpoints, m2, h2, orders)
+
+        # shapes: (dim_polynomial_basis, no_quadrature_rule_points, dim_space)
+        # Contains: u^+ and u^- values of the gradient basis functions
 
         a_val = diffusion(P_Qpoints)
 
-        a_gradx_array = np.einsum('ijk,nij -> nij', a_val, gradtensor_leg_array[:, 0])
-        a_grady_array = np.einsum('ijk,nij -> nij', a_val, gradtensor_leg_array[:, 1])
+        a_gradu1_array = np.einsum('ijk,nik -> nij', a_val, grad_u1)
+        a_gradu2_array = np.einsum('ijk,nik -> nij', a_val, grad_u2)
 
         # Precompute arrays
-        agx = a_gradx_array @ normal
-        agy = a_grady_array @ normal
+        agu1 = a_gradu1_array @ normal  # These need to be (10, 4)
+        agu2 = a_gradu2_array @ normal
 
-        agx_w = agx * weights.T
-        agy_w = agy * weights.T
+        agu1_w = agu1 * weights.T
+        agu2_w = agu2 * weights.T
 
         weighted_tensor = tensor_leg_array * weights.T
 
         # Compute elementwise stiffness matrix contributions
         auxiliary_sigma_1 = (-sigma * tensor_leg_array[:, 0] @ weighted_tensor[:, 0].T +
-                             0.5 * (agx @ weighted_tensor[:, 0].T + tensor_leg_array[:, 0] @ agx_w.T))
+                             0.5 * (agu1 @ weighted_tensor[:, 0].T + tensor_leg_array[:, 0] @ agu1_w.T))
         auxiliary_sigma_2 = (sigma * tensor_leg_array[:, 1] @ weighted_tensor[:, 0].T +
-                             0.5 * (agy @ weighted_tensor[:, 0].T - tensor_leg_array[:, 1] @ agx_w.T))
+                             0.5 * (agu2 @ weighted_tensor[:, 0].T - tensor_leg_array[:, 1] @ agu1_w.T))
         auxiliary_sigma_3 = (sigma * tensor_leg_array[:, 0] @ weighted_tensor[:, 1].T +
-                             0.5 * (-agx @ weighted_tensor[:, 1].T + tensor_leg_array[:, 0] @ agy_w.T))
+                             0.5 * (-agu1 @ weighted_tensor[:, 1].T + tensor_leg_array[:, 0] @ agu2_w.T))
         auxiliary_sigma_4 = (-sigma * tensor_leg_array[:, 1] @ weighted_tensor[:, 1].T +
-                             0.5 * (-agy @ weighted_tensor[:, 1].T - tensor_leg_array[:, 1] @ agy_w.T))
+                             0.5 * (-agu2 @ weighted_tensor[:, 1].T - tensor_leg_array[:, 1] @ agu2_w.T))
 
         # Sort contributions and assemble
         local_1 = auxiliary_sigma_1
