@@ -46,17 +46,18 @@ state-of-the-art numerical capability.
 # Statement of Need
 
 DGFEMs offer flexibility and high-order accuracy, and polytopal
-elements further extend this adaptability through general meshing and
+elements extend this adaptability further through general meshing and
 refined discretisations. Yet most available implementations are
-embedded in complex C++ or Fortran frameworks (see MFEM by @Anderson:2021, 
-Feel++ by @Prud:2012, Dune-FEM-DG by @Dedner:2017 (now including polygonal
-meshes), deal.II by @Bangerth:2007 and FEMPAR by @Badia:2018, for example) which 
-require substantial technical overhead to adapt or extend. Packages such as 
-FEniCS by @alnaes:2015 and Firedrake by @Rathgeber:2016 exist with Python
-interfaces, but extensive knowledge is required, limiting their use 
-for prototyping and teaching. Quail by @Ching:2022 provides a Python DGFEM
-package aimed at this purpose, but it is restricted to triangular and quadrilateral 
-meshes.
+embedded in complex C++ or Fortran frameworks, see MFEM by
+@Anderson:2021, Feel++ by @Prud:2012, Dune-FEM-DG by @Dedner:2017 (now
+supporting polygonal meshes), deal.II by @Bangerth:2007 and FEMPAR by
+@Badia:2018, for example, which require substantial technical overhead
+to adapt or extend. Packages such as FEniCS by @alnaes:2015 and
+Firedrake by @Rathgeber:2016 exist with Python interfaces, but
+extensive knowledge is required, limiting their use for prototyping
+and teaching. Quail by @Ching:2022 provides a Python DGFEM package
+aimed at this purpose, but it is restricted to triangular and
+quadrilateral meshes.
 
 Reyna provides a lightweight, vectorised Python framework that makes
 polytopal DGFEMs accessible without sacrificing efficiency. It enables
@@ -66,13 +67,13 @@ Python libraries and its modular architecture.
 
 # Description
 
-Reyna is a lightweight Python library that provides a concise and
-accessible framework for polytopal discontinuous Galerkin finite
-element methods (DGFEM). It gives researchers and educators a tool
-that makes advanced techniques easy to prototype, test and share. The
-package supports rapid exploration of new ideas while retaining the
-rigour needed for scientific computation with a particular emphasis on
-clarity and minimal ramp-up time.
+Reyna is a lightweight, vectorised Python framework that makes
+polytopal DGFEMs accessible without sacrificing efficiency. It gives
+researchers and educators a tool that makes advanced techniques easy
+to prototype, test and share. The package supports rapid exploration
+of new ideas while retaining the rigour needed for scientific
+computation with a particular emphasis on clarity and minimal ramp-up
+time.
 
 The architecture of Reyna (\autoref{fig:architecture}) is
 intentionally modular, reflecting the natural workflow of finite
