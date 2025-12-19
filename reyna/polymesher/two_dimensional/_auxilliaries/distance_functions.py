@@ -1,6 +1,5 @@
 import numpy as np
 import typing
-import matplotlib.pyplot as plt
 
 
 def d_sphere(p: np.ndarray, center: typing.Optional[np.ndarray] = None, radius: float = 1.0) -> np.ndarray:
@@ -12,14 +11,14 @@ def d_sphere(p: np.ndarray, center: typing.Optional[np.ndarray] = None, radius: 
 
     Args:
         p (np.ndarray): Array of points of the form `[p_0, p_1, ..., p_n]` where each `p_i` is `[x_i, y_i]` or
-        `[x_i, y_i, z_i]`.
+                        `[x_i, y_i, z_i]`.
         center (np.ndarray, optional): The center of the spherical domain. Defaults to the origin of the corresponding
-        dimension if `None`.
+                                       dimension if `None`.
         radius (float, optional): Radius of the spherical domain. Defaults to `1.0`.
 
     Returns:
         np.ndarray: Array of signed distances in the form `[d_0, d_1, ..., d_n]`,
-        where negative values indicate points inside the sphere and positive values outside.
+                    where negative values indicate points inside the sphere and positive values outside.
 
     Raises:
         Exception: p must contain points of dimention 2 or 3.
@@ -69,22 +68,24 @@ def d_rectangle(p: np.ndarray, x1: float, x2: float, y1: float, y2: float) -> np
 
 
 def d_line(p: np.ndarray, x1: float, y1: float, x2: float, y2: float) -> np.ndarray:
-    """Calculates signed distances from points to a line.
+    """
+    Calculates signed distances from points to a line.
 
-        Given an array of 2D coordinates `p`, this function computes the signed distance to a given line. This is a
-        constructor object and can be used to build more complicated domains. Defined with two points which the line
-        passes through. The interior side is defined as the positive normal.
+    Given an array of 2D coordinates `p`, this function computes the signed distance to a given line. This is a
+    constructor object and can be used to build more complicated domains. Defined with two points which the line
+    passes through. The interior side is defined as the positive normal.
 
-        Args:
-            p (np.ndarray): Array of 2D points.
-            x1 (float): First points x value.
-            y1 (float): First points y value.
-            x2 (float): Second points x value.
-            y2 (float): Second points y value.
+    Args:
+        p (np.ndarray): Array of 2D points.
+        x1 (float): First points x value.
+        y1 (float): First points y value.
+        x2 (float): Second points x value.
+        y2 (float): Second points y value.
 
-        Returns:
-            np.ndarray: Array of signed distances.
-        """
+    Returns:
+        np.ndarray: Array of signed distances.
+
+    """
     # tangent vector
     a = np.array([x2 - x1, y2 - y1])
     a = a/np.linalg.norm(a)
@@ -100,6 +101,21 @@ def d_line(p: np.ndarray, x1: float, y1: float, x2: float, y2: float) -> np.ndar
 
 
 def d_hexagon(p: np.ndarray, x: float = 0.0, y: float = 0.0, scale: float = 1.0) -> np.ndarray:
+    """
+    Calculates signed distances from points to a specified hexagon.
+
+    Given an array of 2D coordinates `p`, this function computes the signed distance to a given hexagon.
+
+    Args:
+        p (np.ndarray): Array of 2D points.
+        x (float): x value of the centre of the hexagon.
+        y (float): y value of the centre of the hexagon.
+        scale (float): the scale of the hexagon.
+
+    Returns:
+        np.ndarray: Array of signed distances.
+
+    """
     vertices = np.array([
         [scale * np.cos(i * np.pi / 3), scale * np.sin(i * np.pi / 3)] for i in range(6)
     ])
@@ -124,59 +140,100 @@ def d_hexagon(p: np.ndarray, x: float = 0.0, y: float = 0.0, scale: float = 1.0)
 
 
 def d_intersect(d1: np.ndarray, d2: np.ndarray) -> np.ndarray:
+    """
+    Combines two distance arrays using an intersection operation on their last column.
 
-    d = _d_combination(d1, d2, "max")
+    Args:
+        d1 (np.ndarray): First array of distances with shape (n, m1), where the last column is used for the
+                         combination operation.
+        d2 (np.ndarray): Second array of distances with shape (n, m2), where the last column is used for the
+                         combination operation.
+
+    Returns:
+        np.ndarray: Combined array containing the intersection of the original columns, `d1` and `d2`.
+    """
+
+    d = d_combination(d1, d2, "max")
     return d
 
 
 def d_union(d1: np.ndarray, d2: np.ndarray) -> np.ndarray:
+    """
+    Combines two distance arrays using a union operation on their last column.
 
-    d = _d_combination(d1, d2, "min")
+    Args:
+        d1 (np.ndarray): First array of distances with shape (n, m1), where the last column is used for the
+                         combination operation.
+        d2 (np.ndarray): Second array of distances with shape (n, m2), where the last column is used for the
+                         combination operation.
+
+    Returns:
+        np.ndarray: Combined array containing the union of the original columns, `d1` and `d2`.
+    """
+
+    d = d_combination(d1, d2, "min")
     return d
 
 
 def d_difference(d1: np.ndarray, d2: np.ndarray) -> np.ndarray:
+    """
+    Combines two distance arrays using a difference operation on their last column.
 
-    d = _d_combination(d1, d2, "diff")
+    Args:
+        d1 (np.ndarray): First array of distances with shape (n, m1), where the last column is used for the
+                         combination operation.
+        d2 (np.ndarray): Second array of distances with shape (n, m2), where the last column is used for the
+                         combination operation.
+
+    Returns:
+        np.ndarray: Combined array containing the difference of the original columns, `d1` and `d2`.
+    """
+
+    d = d_combination(d1, d2, "diff")
     return d
 
 
-def _d_combination(d1: np.ndarray, d2: np.ndarray, functionality: str) -> np.ndarray:
-    """Combines two distance arrays using a specified operation on their last column.
+def d_combination(d1: np.ndarray, d2: np.ndarray, functionality: str) -> np.ndarray:
+    """
+    Combines two distance arrays using a specified operation on their last column.
 
-        This function concatenates the non-last columns of `d1` and `d2` and then applies an operation on the last
-        column of each array according to the `functionality` argument. The resulting array includes all original
-        columns plus the combined last column.
+    This function concatenates the non-last columns of `d1` and `d2` and then applies an operation on the last
+    column of each array according to the `functionality` argument. The resulting array includes all original
+    columns plus the combined last column.
 
-        This is used to construct the more complicated 'd_intersect', 'd_union', and 'd_difference' functions.
+    This is used to construct the more complicated 'd_intersect', 'd_union', and 'd_difference' functions.
 
-        Args:
-            d1 (np.ndarray): First array of distances with shape (n, m1), where the last column is used for the
-            combination operation.
-            d2 (np.ndarray): Second array of distances with shape (n, m2), where the last column is used for the
-            combination operation.
-            functionality (str): Specifies how to combine the last columns of `d1` and `d2`. Supported options are:
-            - "min": Take the element-wise minimum. - "max": Take the element-wise maximum. - "diff": Take the
-            element-wise maximum of `d1` and the negative of `d2`.
+    Args:
+        d1 (np.ndarray): First array of distances with shape (n, m1), where the last column is used for the
+                         combination operation.
+        d2 (np.ndarray): Second array of distances with shape (n, m2), where the last column is used for the
+                         combination operation.
+        functionality (str): Specifies how to combine the last columns of `d1` and `d2`. Supported options are:
+                             "min": Take the element-wise minimum. "max": Take the element-wise maximum. "diff": Take
+                              the element-wise maximum of `d1` and the negative of `d2`.
 
-        Returns:
-            np.ndarray: Combined array containing the original columns from `d1` and `d2`
-            (excluding their original last columns) and the new last column resulting
-            from the specified combination.
+    Returns:
+        np.ndarray: Combined array containing the original columns from `d1` and `d2`
+                    (excluding their original last columns) and the new last column resulting
+                    from the specified combination.
 
-        Raises:
-            ValueError: If `functionality` is not one of "min", "max", or "diff".
-        """
+    Raises:
+        ValueError: If `functionality` is not one of "min", "max", or "diff".
+
+    """
 
     if functionality == "min":
-        func_d = np.min(np.concatenate((d1[:, -1][:, np.newaxis], d2[:, -1][:, np.newaxis]), axis=1), axis=1)[:,
-                 np.newaxis]
+        func_d = np.min(
+            np.concatenate((d1[:, -1][:, np.newaxis], d2[:, -1][:, np.newaxis]), axis=1), axis=1
+        )[:, np.newaxis]
     elif functionality == "max":
-        func_d = np.max(np.concatenate((d1[:, -1][:, np.newaxis], d2[:, -1][:, np.newaxis]), axis=1), axis=1)[:,
-                 np.newaxis]
+        func_d = np.max(
+            np.concatenate((d1[:, -1][:, np.newaxis], d2[:, -1][:, np.newaxis]), axis=1), axis=1
+        )[:, np.newaxis]
     elif functionality == "diff":
-        func_d = np.max(np.concatenate((d1[:, -1][:, np.newaxis], -d2[:, -1][:, np.newaxis]), axis=1), axis=1)[:,
-                 np.newaxis]
+        func_d = np.max(
+            np.concatenate((d1[:, -1][:, np.newaxis], -d2[:, -1][:, np.newaxis]), axis=1), axis=1
+        )[:, np.newaxis]
     else:
         raise ValueError("The input for functionality is invalid: poly_mesher_distance_functionc._d_combination")
 

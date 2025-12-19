@@ -47,6 +47,7 @@ include = ["reyna*"]
 "examples" = ["*"]
 "tools" = ["*"]
 "tests" = ["*"]
+"docs" = ["*"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]

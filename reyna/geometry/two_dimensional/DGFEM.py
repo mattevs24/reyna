@@ -46,9 +46,6 @@ class DGFEMGeometry:
         h_s (typing.Optional[np.ndarray]): The array of cell diameters (.h being the maximum of this array).
         areas (typing.Optional[np.ndarray]): The array of cell areas.
 
-    Methods:
-        save_geometry(...): Save the geometry object to a given file.
-
     Notes:
         - We do note here that this only works for convex elements. This is a guarentee given the PolyMesh object, but
           user-defined meshes may not work as required and may require further computation.

@@ -1,8 +1,8 @@
-Polymesher was originally a MatLab package developed by Talischi et al. [^1]. This
-package allows the generation of polygonal meshes (specifically bounded Voronoi tessellsations)
+Polymesher was originally a MATLAB package developed by Talischi et al. [^1]. This
+package allows the generation of polygonal meshes (specifically bounded Voronoi tessellations)
 to a given domain. This is a ```Python``` adaptation of that original work. Here we have altered the
 implementation, while remaining faithful to the original intentions of the software, to make the codebase
-more pythonic in nature and to fit the user pipline more appropriately.
+more pythonic in nature and to fit the user pipeline more appropriately.
 
 
 The functionality of this subpackage is demonstrated in the notebook examples in

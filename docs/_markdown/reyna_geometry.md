@@ -5,6 +5,6 @@ This was specifically done to allow for independent mesh design without the adde
 corresponding additional mesh variables.
 
 As with the rest of the package, we present the ```two_dimensional``` geometry generation for the ```DGFEM```
-solver. Additional geometries may be added, corresponding to various additonal schemes, but this is future work.
+solver. Additional geometries may be added, corresponding to various additional schemes, but this is future work.
 The current ```DGFEMGeometry``` object is optimised to generate the geometry required for the current
 ```DGFEM``` solver. More information on what the object generates can be found in the specific module.

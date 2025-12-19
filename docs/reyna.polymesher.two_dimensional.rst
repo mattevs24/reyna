@@ -1,6 +1,12 @@
 two\_dimensional
 =========================================
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Subpackages:
+
+   reyna.polymesher.two_dimensional._auxilliaries
+
 domains
 ------------------------------------------------
 

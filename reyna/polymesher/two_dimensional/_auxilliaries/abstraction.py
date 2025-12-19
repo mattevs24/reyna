@@ -5,12 +5,8 @@ from abc import ABCMeta, abstractmethod
 
 class Domain(metaclass=ABCMeta):
     """
-    Foundational class for domain generation. Every (custom) domain must be built on this ABC. Defines the common
-    interface for all domains.
-
-    Attributes:
-        bounding_box (np.ndarray): Bounding box of the domain.
-        fixed_points (np.ndarray): Fixed points of the domain.
+    Foundational class for domain generation. Every (custom) domain must be built on this ABC to function correctly
+    with the poly_mesher function. Defines the common interface for all domains.
 
     Notes:
         - The variable fixed points works with 'poly_mesher' and gives a set of points that remain as fixed centres
@@ -64,20 +60,15 @@ class PolyMesh(metaclass=ABCMeta):
 
     Attributes:
         vertices (np.ndarray): Array of vertices.
-        filtered_regions: Elements of the mesh (list of lists of integer indecies to 'vertices')
-        filtered_points: The corresponding centers of these elements.
+        filtered_regions (typing.List[list]): Elements of the mesh (list of lists of integer indecies to 'vertices')
+        filtered_points (np.ndarray): The corresponding centers of these elements.
         domain (Domain): The domain class used to generate this PolyMesh.
 
     Notes:
-        - The 'filtered_points" amy be any points so long as they lie in the kernel of the element (e.g. Voronoi centers
-        if the mesh is Voronoi). I.e. the elements must be relatively convex with respect to this point.
+        - The 'filtered_points" may be any points so long as they lie in the kernel of the element (e.g. Voronoi centers
+          if the mesh is Voronoi). I.e. the elements must be relatively convex with respect to this point.
 
     """
-
-    vertices: np.ndarray
-    filtered_regions: typing.List[list]
-    filtered_points: np.ndarray
-    domain: Domain
 
     def __init__(self, vertices, filtered_regions, filtered_points, domain):
         self.vertices = vertices

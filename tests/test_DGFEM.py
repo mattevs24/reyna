@@ -9,6 +9,9 @@ from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 from reyna.DGFEM.two_dimensional.main import DGFEM
 
 
+np.random.seed(1142)
+
+
 class TestDGFEM:
 
     # Parameter tests to begin
@@ -477,6 +480,7 @@ class TestDGFEM:
 
     def test_benchmark_diffusion(self):
         """ Benchmark diffusion equations with p=1 polynomials. """
+        np.random.seed(1142)
 
         n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
 
@@ -542,6 +546,7 @@ class TestDGFEM:
 
     def test_benchmark_advection_reaction(self):
         """ Benchmark advection equations with p=1 polynomials. """
+        np.random.seed(1337)
 
         n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
 
@@ -593,6 +598,7 @@ class TestDGFEM:
     def test_benchmark_advection_diffusion_reaction(self):
         """ Benchmark the full advection-diffusion-reaction equations with p=3 polynomials and a non-diagonal diffusion
         tensor. """
+        np.random.seed(1142)
 
         n_elements = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
 
