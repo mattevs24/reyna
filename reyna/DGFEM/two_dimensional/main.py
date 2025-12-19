@@ -23,7 +23,7 @@ from reyna.DGFEM.two_dimensional._auxilliaries.assembly.boundary_assembly import
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.boundary_assembly import error_d_face, error_a_face
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.full_assembly import error_element, error_interface
 
-from reyna.DGFEM.two_dimensional.plotter import plot_DG
+from reyna.DGFEM.two_dimensional.tools import plot_DG
 
 
 class DGFEM:
@@ -175,7 +175,6 @@ class DGFEM:
         if self.dirichlet_bcs is None:
             raise ValueError('Must have Dirichlet boundary conditions.')
 
-        # TODO: moved the init quadrature here -- make sure this doesn't cause any problems
         self._intialise_quadrature()
         self.boundary_information = self._define_boundary_information()
 

@@ -14,6 +14,8 @@ from reyna.polymesher.two_dimensional.visualisation import display_mesh
 
 from reyna.DGFEM.two_dimensional.main import DGFEM
 
+from reyna.DGFEM.two_dimensional.tools import plot_DG
+
 # with open('_benchmark_data/p1.csv', 'r') as csvfile:
 #     data = csv.reader(csvfile, delimiter=',')
 #     data_1 = np.array(list(data)).astype(np.float64)
@@ -188,7 +190,8 @@ for n_r in n_elements:
         )
 
         dg.dgfem(solve=True)
-        # dg.plot_DG()
+        dg.plot_DG()
+        plot_DG(dg.solution, dg.geometry, dg.polydegree)
 
         l2_error, dg_error, h1_error = dg.errors(
             exact_solution=solution,

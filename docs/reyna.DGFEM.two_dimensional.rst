@@ -9,10 +9,10 @@ main
    :undoc-members:
    :show-inheritance:
 
-plotter
+tools
 -------------------------------------------
 
-.. automodule:: reyna.DGFEM.two_dimensional.plotter
+.. automodule:: reyna.DGFEM.two_dimensional.tools
    :members:
    :undoc-members:
    :show-inheritance:

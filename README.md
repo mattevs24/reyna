@@ -130,7 +130,7 @@ dg.plot_DG()
 or for more customisation, use the function `plot_DG`,
 
 ```python
-from reyna.DGFEM.two_dimensional.plotter import plot_DG
+from reyna.DGFEM.two_dimensional.tools import plot_DG
 
 plot_DG(dg.solution, geometry, dg.polydegree)
 ```

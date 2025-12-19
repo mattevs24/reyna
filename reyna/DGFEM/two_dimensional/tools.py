@@ -1,3 +1,5 @@
+import typing
+
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d as a3
@@ -64,15 +66,9 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
         for t in range(geometry.n_elements):
             elem, BDbox = geometry.mesh.filtered_regions[t], geometry.elem_bounding_boxes[t]
             node = geometry.nodes[elem, :]
-
-            # Calculating nodal values
             coef = numerical_solution[t * dim_elem: (t + 1) * dim_elem]
-            h = 0.5 * np.array([BDbox[1] - BDbox[0], BDbox[3] - BDbox[2]])
-            m = 0.5 * np.array([BDbox[1] + BDbox[0], BDbox[3] + BDbox[2]])
 
-            tensor_leg_array = tensor_tensor_leg(node, m, h, Lege_ind)
-
-            u_DG_val = tensor_leg_array.T @ coef
+            u_DG_val = evaluate(node, coef, BDbox, orders=Lege_ind)
 
             U_max = np.maximum(U_max, np.max(u_DG_val))
             U_min = np.minimum(U_min, np.min(u_DG_val))
@@ -83,17 +79,12 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
             y_max = np.maximum(y_max, np.max(node[:, 1]))
 
         for t in range(geometry.n_elements):
+
             elem, BDbox = geometry.mesh.filtered_regions[t], geometry.elem_bounding_boxes[t]
             node = geometry.nodes[elem, :]
-
-            # Calculating nodal values
             coef = numerical_solution[t * dim_elem: (t + 1) * dim_elem]
-            h = 0.5 * np.array([BDbox[1] - BDbox[0], BDbox[3] - BDbox[2]])
-            m = 0.5 * np.array([BDbox[1] + BDbox[0], BDbox[3] + BDbox[2]])
 
-            tensor_leg_array = tensor_tensor_leg(node, m, h, Lege_ind)
-
-            u_DG_val = tensor_leg_array.T @ coef
+            u_DG_val = evaluate(node, coef, BDbox, orders=Lege_ind)
 
             # create plot
             vtx = np.hstack((node, u_DG_val[:, np.newaxis]))
@@ -121,3 +112,42 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
     ax_poly.set_zlabel(r'$u$')
 
     plt.show()
+
+
+def evaluate(x: np.ndarray,
+             dg_coefficients: np.ndarray, bounding_box: np.ndarray,
+             polynomial_degree: typing.Optional[int] = None,
+             orders: typing.Optional[np.ndarray] = None) -> np.ndarray:
+    """
+    A simple element-wise evaluation function. Given a set of points, one may evalulate the DG solution at these points.
+    Additionally, the bounding box of the element in question is required to specify the basis functions. This function
+    also requires either the polynomial degree of the FEM space or the FEM orders. Either of these may be left blank
+    but at the cost of additional computational overhead. Placing the orders in directly is the most efficient.
+
+    Notes:
+        The input points `x` must lie within the element in question (or on the boundary). If not this does not reflect
+        the correct FEM solution.
+
+    Args:
+        x (np.ndarray): the points to evaluate.
+        dg_coefficients (np.ndarray): The DG coefficients.
+        bounding_box (np.ndarray): The bounding box of the element in question.
+        polynomial_degree (typing.Optional[int]): The polynomial of the corresponding FEM space.
+        orders (typing.Optional[np.ndarray]): The FEM indecies of the tensored polynomials.
+
+    Returns:
+        (np.ndarray): The finite element solution at the given basis elements.
+    """
+
+    if orders is None:
+        if polynomial_degree is None:
+            polynomial_degree = 0.5 * (-3.0 + np.sqrt(1.0 + 8.0 * dg_coefficients.shape[0]))
+
+        orders = Basis_index2D(polynomial_degree)
+
+    h = 0.5 * np.array([bounding_box[1] - bounding_box[0], bounding_box[3] - bounding_box[2]])
+    m = 0.5 * np.array([bounding_box[1] + bounding_box[0], bounding_box[3] + bounding_box[2]])
+
+    tensor_leg_array = tensor_tensor_leg(x, m, h, orders)
+
+    return tensor_leg_array.T @ dg_coefficients
