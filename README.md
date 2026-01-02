@@ -29,6 +29,8 @@ Install from source:
 pip install git+https://github.com/mattevs24/reyna.git
 ```
 
+Please use a Python version ```3.8```-```<3.12``` to ensure that all features work as expected.
+
 ## Example Usage
 
 ### Create a Simple Mesh
@@ -208,4 +210,7 @@ up with all this nonsense!
 
 There are many features that remain to add to this code! We hope to add support for the following features
 
+- Neumann and Robin boundary conditions: further support for more advanced boundary conditions that fit naturally into 
+  the DGFEM formulation. 
 - Mixed boundary conditions: support for multiple types of boundary conditions on the same domain.
+- 3D DGFEM: implement a full three dimensional version of the code able to support the same functionality.
