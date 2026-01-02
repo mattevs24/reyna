@@ -1,5 +1,12 @@
 # reyna
 
+![PyPI - Version](https://img.shields.io/pypi/v/reyna)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/reyna?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/reyna)
+[![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT)
+![docs](https://app.readthedocs.org/projects/reyna/badge/?version=latest)
+[![Run Pytest](https://github.com/mattevs24/reyna/actions/workflows/tests.yml/badge.svg)](https://github.com/mattevs24/reyna/actions/workflows/tests.yml)
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/mattevs24/reyna)
+
 <!-- index.rst content start -->
 
 A lightweight Python package for solving partial differential equations (PDEs) using polygonal discontinuous 
