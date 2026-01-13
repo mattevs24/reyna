@@ -1,3 +1,5 @@
+import typing
+
 import numpy as np
 from scipy.spatial import Voronoi, Delaunay
 
@@ -69,7 +71,13 @@ def poly_mesher_3d(domain: Domain3D, max_iterations: int = 100, **kwargs) -> Pol
         if iteration % 10 == 0:
             print(f"Iteration: {iteration}. Error: {error}")
 
-    poly_mesh = PolyMesh3D(voronoi.vertices, elements[: n_points], points, domain)
+    filtered_facets = _filter_facets(voronoi.ridge_points, voronoi.ridge_vertices, n_points)
+
+    poly_mesh = PolyMesh3D(voronoi.vertices, filtered_facets, elements[: n_points], points, domain)
+    # TODO: need to be careful -- can use ridge_points and ridge_vertices but have to restrict in some way to include
+    #  the boundary facets too -- if a row in ridge points contains an index less than n_points, retain and filter
+    #  ridge vertices with this (the indecies should be the global ones?) this could optimise the boundary edge and
+    #  interior edge filtering later in DGFEMGeometry?
 
     return poly_mesh
 
@@ -237,3 +245,19 @@ def _3d_simplex_volume(vertices: np.ndarray) -> float:
     volume = np.abs(1.0 / 6.0 * np.linalg.det(np.vstack((ab, ac, ad))))
     return volume
 
+
+def _filter_facets(ridge_points: np.ndarray, ridge_vertices: typing.List[list], n_elements: int) -> typing.List[list]:
+    """
+    This function filters out the facets that correpond to the bounded Voronoi tessellation.
+    Args:
+        ridge_points: Indices of the points between which each Voronoi ridge lies.
+        ridge_vertices: Indices of the Voronoi vertices forming each Voronoi ridge.
+        n_elements: Number of points or elements in the bounded mesh.
+
+    Returns:
+        (typing.List[list]): List of lists of integer indecies for 'vertices'
+    """
+    mask = np.sum(ridge_points < n_elements, axis=1) > 0
+    filtered_facets = list(filter(lambda x: mask[ridge_vertices.index(x)], ridge_vertices))
+
+    return filtered_facets

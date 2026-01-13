@@ -14,10 +14,10 @@ def d_cuboid(p: np.ndarray, bounding_box: np.ndarray) -> np.ndarray:
         np.ndarray: An array of the distances.
     """
     d = np.array(
-        [bounding_box[0, 0] - p[:, 0], p[:, 0] - bounding_box[1, 0],
-         bounding_box[0, 1] - p[:, 1], p[:, 1] - bounding_box[1, 1],
-         bounding_box[0, 2] - p[:, 2], p[:, 2] - bounding_box[1, 2]]
-    )
+        [bounding_box[0, 0] - p[:, 0], p[:, 0] - bounding_box[0, 1],
+         bounding_box[1, 0] - p[:, 1], p[:, 1] - bounding_box[1, 1],
+         bounding_box[2, 0] - p[:, 2], p[:, 2] - bounding_box[2, 1]]
+    ).T
 
-    d = np.concatenate((d, np.max(d)))
+    d = np.concatenate((d, np.max(d, axis=1, keepdims=True)), axis=1)
     return d

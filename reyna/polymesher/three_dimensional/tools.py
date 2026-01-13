@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 from reyna.polymesher.three_dimensional._auxilliaries.abstraction import Domain3D, PolyMesh3D
 
@@ -85,5 +86,25 @@ def write_to_vtk(filepath: str, poly_mesh: PolyMesh3D, domain: Domain3D) -> None
         file.close()
 
 
-def display_mesh(poly_mesh: PolyMesh3D) -> None:
+def read_from_voro_pp(filepath: str) -> PolyMesh3D:
+    # TODO: this function needs to take in all the values from voro++ and generate the mesh here.
     ...
+
+
+def display_mesh(poly_mesh: PolyMesh3D) -> None:
+    # TODO: idealy for this function, the facets of the mesh are alreacy known -- this was achieved in two dimensions
+    #  simply by the way in which voronoi tesellations are contructed, but not here -- more work is required.
+
+    ax = plt.figure().add_subplot(projection='3d')
+
+    for facet in poly_mesh.facets:
+        indecies = np.concatenate((np.arange(len(facet)), np.array([0])))
+        face = np.array(facet)[indecies]
+        ax.plot(
+            poly_mesh.vertices[face, 0],
+            poly_mesh.vertices[face, 1],
+            poly_mesh.vertices[face, 2],
+            color='r',
+        )
+
+    plt.show()

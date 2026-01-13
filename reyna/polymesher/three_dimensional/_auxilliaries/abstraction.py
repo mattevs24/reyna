@@ -60,8 +60,9 @@ class PolyMesh3D(metaclass=ABCMeta):
 
     Attributes:
         vertices (np.ndarray): Array of vertices.
-        filtered_regions (typing.List[list]): Elements of the mesh (list of lists of integer indecies to 'vertices')
-        filtered_points (np.ndarray): The corresponding centers of these elements.
+        facets (typing.List[list]): Facets of the mesh (list of lists of integer indecies to 'vertices')
+        elements (typing.List[list]): Elements of the mesh (list of lists of integer indecies to 'vertices')
+        centers (np.ndarray): The corresponding centers of these elements.
         domain (Domain): The domain class used to generate this PolyMesh.
 
     Notes:
@@ -70,10 +71,15 @@ class PolyMesh3D(metaclass=ABCMeta):
 
     """
 
-    def __init__(self, vertices, filtered_regions, filtered_points, domain):
+    def __init__(self, vertices, filtered_facets, filtered_regions, filtered_points, domain):
         self.vertices = vertices
-        self.filtered_regions = filtered_regions
-        self.filtered_points = filtered_points
+        self.facets = filtered_facets
+        self.elements = filtered_regions
+        self.centers = filtered_points
         self.domain = domain
 
         # TODO: need to update this here based on what I want/need for the DGFEM Geometry and solver
+        # Ideally this contains all the facet information too with indecies on the global coordinate system.
+        # These facet indecies will be ordered either clockwise or anticlockwise to fit the pattern of the two
+        # dimensional facets -- to do this, can cycle through ridge_vertices? this may be an exact list of facets?
+        # hopefully these facet indecies will be in order as two dimensions.
