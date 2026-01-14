@@ -34,25 +34,30 @@ class DGFEMGeometry:
         """
         self.mesh = poly_mesh
 
-        self.n_nodes = poly_mesh.vertices.shape[0]
         self.n_elements = len(poly_mesh.elements)
+        self.n_nodes = poly_mesh.vertices.shape[0]
+        self.dimension = poly_mesh.vertices.shape[1]
 
         self.nodes = poly_mesh.vertices
 
-        self.elem_bounding_boxes = None  # yes -- done
+        self.elem_bounding_boxes = None  # yes -- done -- checked
 
-        self.boundary_facets = None  # yes
-        self.boundary_facets_to_element = None  # yes
-        self.interior_facets = None  # yes
-        self.interior_facets_to_element = None  # yes
-        self.boundary_normals = None  # yes
-        self.interior_normals = None  # yes
+        # TODO: may convert bounding boxes here to midpoints and radii? m and h's
 
-        self.simplicial_decomposition = None  # yes -- done
-        self.facet_subtriangulations = None  # yes -- done
-        self.n_simplicies = None  # yes -- done
-        self.simplex_to_element = None  # yes -- done
-        self.triangle_to_facet = None   # yes? -- done
+        self.boundary_facets = None  # yes -- done
+        # self.boundary_facets_to_element = None  # yes-- done
+
+        self.interior_facets = None  # yes -- done
+        # self.interior_facets_to_element = None  # yes-- done
+        #
+        # self.boundary_normals = None  # yes -- done
+        # self.interior_normals = None  # yes -- done
+
+        self.simplicial_decomposition = None  # yes -- done -- checked
+        self.facet_subtriangulations = None  # yes -- done -- checked
+        self.n_simplicies = None  # yes -- done -- checked
+        self.simplex_to_element = None  # yes -- done -- checked
+        self.triangle_to_facet = None   # yes? -- done -- checked
 
         self.h: typing.Optional[float] = None  # yes
         self.h_s: typing.Optional[np.ndarray] = None  # yes
@@ -121,6 +126,18 @@ class DGFEMGeometry:
         self.n_simplicies = self.simplicial_decomposition.shape[0]
         self.simplex_to_element = simplex_to_element
 
+        # Indicate the boundary and interior facets
+        self.boundary_facets = np.where(self.mesh.facet_types == 0)[0]
+        self.interior_facets = np.where(self.mesh.facet_types == 1)[0]
+
+        # # Facet to elements
+        # self.boundary_facets_to_element = np.array([
+        #     (self.mesh.ridge_points[i] if self.mesh.ridge_points[i, 0] < self.n_elements else self.mesh.ridge_points[
+        #         i, 1]) for i in self.boundary_facets
+        # ])
+        #
+        # self.interior_facets_to_element = self.mesh.ridge_points[self.interior_facets]
+
         # Operations on the elements' facets.
 
         sub_triangulation_0 = []
@@ -128,6 +145,9 @@ class DGFEMGeometry:
         sub_triangulation_2 = []
 
         triangle_to_facet = []
+
+        # self.boundary_normals = np.zeros((len(self.boundary_facets), 3), dtype=float)
+        # self.interior_normals = np.zeros((len(self.interior_facets), 3), dtype=float)
 
         for i, facet in enumerate(self.mesh.facets):
 
@@ -140,6 +160,13 @@ class DGFEMGeometry:
 
             _, _, Vt = np.linalg.svd(X, full_matrices=False)
             vertices_2d = X @ Vt[:2].T  # V transpose is a basis here for the projection's codomain ([:2] as degenerate)
+
+            normal = np.cross(Vt[0], Vt[1])
+
+            # if self.mesh.facet_types[i] == 0:
+            #     self.boundary_normals[np.argwhere(self.boundary_facets == i)[0]] = normal
+            # else:
+            #     self.interior_normals[np.argwhere(self.interior_facets == i)[0]] = normal
 
             projected_subtriangulation = Delaunay(vertices_2d)
 
@@ -154,3 +181,4 @@ class DGFEMGeometry:
         self.facet_subtriangulations = np.concatenate((np.array(sub_triangulation_0)[:, np.newaxis],
                                                        np.array(sub_triangulation_1)[:, np.newaxis],
                                                        np.array(sub_triangulation_2)[:, np.newaxis]), axis=1)
+

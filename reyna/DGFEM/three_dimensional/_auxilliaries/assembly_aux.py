@@ -4,7 +4,7 @@ from numba import njit, f8, i8
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly_aux import tensor_shift_leg
 
 
-@njit(f8[:, :](f8[:, :], f8[:, :]))
+# @njit(f8[:, :](f8[:, :], f8[:, :]))
 def reference_to_physical_t4(t: np.ndarray, ref: np.ndarray) -> np.ndarray:
     """
     This function takes a set of vertices of a simplex and a reference set of quadrature points and maps these points
@@ -32,7 +32,7 @@ def reference_to_physical_t4(t: np.ndarray, ref: np.ndarray) -> np.ndarray:
     return phy
 
 
-@njit(f8[:, :](f8[:, :], f8[:], f8[:], i8[:, :]))
+# @njit(f8[:, :](f8[:, :], f8[:], f8[:], i8[:, :]))
 def tensor_tensor_leg(x: np.ndarray, _m: np.ndarray, _h: np.ndarray, orders: np.ndarray) -> np.ndarray:
     """
     This function generates the values for the tensor-legendre polynomials. It takes the values from each cartesian
@@ -61,7 +61,7 @@ def tensor_tensor_leg(x: np.ndarray, _m: np.ndarray, _h: np.ndarray, orders: np.
     return val
 
 
-@njit(f8[:, :, :](f8[:, :], f8[:], f8[:], i8[:, :]))
+# @njit(f8[:, :, :](f8[:, :], f8[:], f8[:], i8[:, :]))
 def tensor_gradtensor_leg(x: np.ndarray, _m: np.ndarray, _h: np.ndarray, orders: np.ndarray) -> np.ndarray:
     """
     Thie function takes a set of input points and returns the evaluated gradients of the tensor-lengendre polynomials.

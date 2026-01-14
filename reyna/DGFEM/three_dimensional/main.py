@@ -10,20 +10,22 @@ from scipy.sparse.linalg import spsolve
 from numpy.polynomial.legendre import leggauss
 from scipy.special import roots_jacobi
 
-from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
+from reyna.geometry.three_dimensional.DGFEM import DGFEMGeometry
 
-from reyna.DGFEM.two_dimensional._auxilliaries.boundary_information import BoundaryInformation
+from reyna.DGFEM.three_dimensional._auxilliaries.boundary_information import BoundaryInformation
 from reyna.DGFEM.three_dimensional._auxilliaries.polyhedral_basis_utils import basis_indices
 
 from reyna.DGFEM.three_dimensional._auxilliaries.assembly.full_assembly import localstiff, int_localstiff
 
 from reyna.DGFEM.two_dimensional._auxilliaries.assembly.boundary_assembly import (local_advection_inflow,
-                                                                                  local_diffusion_dirichlet)
+                                                                                  local_diffusion_dirichlet)  # TODO
 
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.boundary_assembly import error_d_face, error_a_face
 from reyna.DGFEM.two_dimensional._auxilliaries.error_assembly.full_assembly import error_element, error_interface
 
-from reyna.DGFEM.two_dimensional.tools import plot_DG
+# TODO: error code here
+
+from reyna.DGFEM.two_dimensional.tools import plot_DG  # TODO: need a 3D version? this will be tricky....
 
 
 class DGFEM:
@@ -241,27 +243,37 @@ class DGFEM:
         Returns:
             None
         """
-
-        # TODO: this function may be a little difficult -- how to generate the new quadrature points in 3D?
-        # TODO: also need to retain the two dimensional quadrature points for the facet quadrature.
-
         quadrature_order = self.polydegree + 1
 
         x, w_x = leggauss(quadrature_order)
         y, w_y = roots_jacobi(quadrature_order, 1, 0)
+        z, w_z = roots_jacobi(quadrature_order, 2, 0)
 
-        quad_x = np.reshape(np.repeat(x, w_y.shape[0]), (-1, 1))
-        quad_y = np.reshape(np.tile(y, w_x.shape[0]), (-1, 1), order='F')
-        weights = (w_x[:, None] * w_y).flatten().reshape(-1, 1)
+        # Element rule
+        quad_x = np.repeat(x, y.size * z.size).reshape(-1, 1)
+        quad_y = np.tile(np.repeat(y, z.size), x.size).reshape(-1, 1)
+        quad_z = np.tile(z, x.size * y.size).reshape(-1, 1)
 
-        # Duffy transform to the reference triangle points
-        shiftpoints = np.hstack((0.5 * (1.0 + quad_x) * (1.0 - quad_y) - 1.0, quad_y))
-        ref_points = 0.5 * shiftpoints + 0.5
+        element_weights = (w_x[:, None, None] * w_y[None, :, None] * w_z[None, None, :]).reshape(-1, 1)
 
-        # TODO: run through where these functions are used and fix the awkward [:, None] parts on them to avoid this
+        # Duffy transform to reference tetrahedron
+        z_ref = 0.5 * (1.0 + quad_z)
+        y_ref = 0.5 * (1.0 + quad_y) * (1.0 - z_ref)
+        x_ref = 0.5 * (1.0 + quad_x) * (1.0 - y_ref - z_ref)
 
-        self.element_reference_quadrature = (weights, ref_points)
-        self.edge_reference_quadrature = (w_x[:, None], x[:, None])
+        element_ref_points = np.hstack((x_ref, y_ref, z_ref))
+        self.element_reference_quadrature = (element_weights, element_ref_points)
+
+        # Facet rule
+        quad_x2 = np.repeat(x, y.size).reshape(-1, 1)
+        quad_y2 = np.tile(y, x.size).reshape(-1, 1)
+        facet_weights = (w_x[:, None] * w_y).reshape(-1, 1)
+
+        x2_ref = 0.5 * (1.0 + quad_x2) * (1.0 - 0.5 * (1.0 + quad_y2))
+        y2_ref = 0.5 * (1.0 + quad_y2)
+
+        facet_ref_points = np.hstack((x2_ref, y2_ref))
+        self.edge_reference_quadrature = (facet_weights, facet_ref_points)
 
     def _define_boundary_information(self, **kwargs) -> BoundaryInformation:
         """
@@ -307,9 +319,9 @@ class DGFEM:
             i[:, t] = self.dim_elem * t + ind_x
             j[:, t] = self.dim_elem * t + ind_y
 
-        for t in range(self.geometry.n_triangles):
-            local_triangle = self.geometry.subtriangulation[t, :]
-            element_idx = self.geometry.triangle_to_polygon[t]
+        for t in range(self.geometry.n_simplicies):
+            local_triangle = self.geometry.simplicial_decomposition[t, :]
+            element_idx = self.geometry.simplex_to_element[t]
 
             local_stiff, local_forcing = localstiff(
                 self.geometry.nodes[local_triangle, :],
@@ -344,24 +356,24 @@ class DGFEM:
             computational mesh.
         """
 
-        i = np.zeros((4 * self.dim_elem ** 2, self.geometry.interior_edges.shape[0]), dtype=int)
-        j = np.zeros((4 * self.dim_elem ** 2, self.geometry.interior_edges.shape[0]), dtype=int)
-        s = np.zeros((4 * self.dim_elem ** 2, self.geometry.interior_edges.shape[0]))
+        i = np.zeros((4 * self.dim_elem ** 2, self.geometry.interior_facets.shape[0]), dtype=int)
+        j = np.zeros((4 * self.dim_elem ** 2, self.geometry.interior_facets.shape[0]), dtype=int)
+        s = np.zeros((4 * self.dim_elem ** 2, self.geometry.interior_facets.shape[0]))
 
-        for t in range(self.geometry.interior_edges.shape[0]):
-            elem_oneface = self.geometry.interior_edges_to_element[t, :]
+        for t in range(self.geometry.interior_facets.shape[0]):
+            elem_oneface = self.geometry.interior_facets_to_element[t, :]
 
             # Direction of normal is predetermined! -- Points from elem_oneface[0] to elem_oneface[1]
             interface = int_localstiff(
-                self.geometry.nodes[self.geometry.interior_edges[t, :], :],
+                self.geometry.nodes[self.geometry.interior_facets[t, :], :],
                 self.geometry.elem_bounding_boxes[elem_oneface[0]],
                 self.geometry.elem_bounding_boxes[elem_oneface[1]],
                 self.edge_reference_quadrature,
                 self.orders,
-                self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[0]], :],
-                self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[1]], :],
-                self.geometry.areas[elem_oneface[0]],
-                self.geometry.areas[elem_oneface[1]],
+                self.geometry.nodes[self.geometry.mesh.elements[elem_oneface[0]], :],
+                self.geometry.nodes[self.geometry.mesh.elements[elem_oneface[1]], :],
+                self.geometry.volumes[elem_oneface[0]],
+                self.geometry.volumes[elem_oneface[1]],
                 self.polydegree,
                 self.sigma_D,
                 self.geometry.interior_normals[t, :],
@@ -404,20 +416,20 @@ class DGFEM:
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')
 
         for t in range(self.boundary_information.elliptical_indecies.shape[0]):
-            element_idx = self.geometry.boundary_edges_to_element[t]
+            element_idx = self.geometry.boundary_facets_to_element[t]
             i[:, element_idx] = self.dim_elem * element_idx + ind_x
             j[:, element_idx] = self.dim_elem * element_idx + ind_y
 
         for v in list(self.boundary_information.elliptical_indecies):
-            element_idx = self.geometry.boundary_edges_to_element[v]
+            element_idx = self.geometry.boundary_facets_to_element[v]
 
             local_bc_diff, local_bcs_forcing = local_diffusion_dirichlet(
-                self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
+                self.geometry.nodes[self.geometry.boundary_facets[v, :], :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.edge_reference_quadrature,
                 self.orders,
-                self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
-                self.geometry.areas[element_idx],
+                self.geometry.nodes[self.geometry.mesh.elements[element_idx], :],
+                self.geometry.volumes[element_idx],
                 self.polydegree,
                 self.sigma_D,
                 self.geometry.boundary_normals[v, :],
@@ -458,10 +470,10 @@ class DGFEM:
         ind_x, ind_y = ind_x.flatten('F'), ind_y.flatten('F')
 
         for t, v in enumerate(list(self.boundary_information.inflow_indecies)):
-            element_idx = self.geometry.boundary_edges_to_element[v]
+            element_idx = self.geometry.boundary_facets_to_element[v]
 
             local_bc_adv, forcing_bcs_adv = local_advection_inflow(
-                self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
+                self.geometry.nodes[self.geometry.boundary_facets[v, :], :],
                 self.geometry.elem_bounding_boxes[element_idx],
                 self.edge_reference_quadrature,
                 self.orders,
@@ -528,9 +540,9 @@ class DGFEM:
 
         l2_error, dg_error, h1_error = 0.0, 0.0, 0.0
 
-        for t in range(self.geometry.n_triangles):
-            local_triangle = self.geometry.subtriangulation[t, :]
-            element_idx = self.geometry.triangle_to_polygon[t]
+        for t in range(self.geometry.n_simplicies):
+            local_triangle = self.geometry.simplicial_decomposition[t, :]
+            element_idx = self.geometry.simplex_to_element[t]
 
             l2_subnorm, dg_subnorm, h1_subnorm = error_element(
                 self.geometry.nodes[local_triangle, :],
@@ -550,19 +562,19 @@ class DGFEM:
             if self.diffusion is not None:
                 h1_error += h1_subnorm
 
-        for t in range(self.geometry.interior_edges.shape[0]):
-            elem_oneface = self.geometry.interior_edges_to_element[t, :]
+        for t in range(self.geometry.interior_facets.shape[0]):
+            elem_oneface = self.geometry.interior_facets_to_element[t, :]
 
             dg_subnorm = error_interface(
-                self.geometry.nodes[self.geometry.interior_edges[t, :], :],
+                self.geometry.nodes[self.geometry.interior_facets[t, :], :],
                 self.geometry.elem_bounding_boxes[elem_oneface[0]],
                 self.geometry.elem_bounding_boxes[elem_oneface[1]],
                 self.edge_reference_quadrature,
                 self.orders,
-                self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[0]], :],
-                self.geometry.nodes[self.geometry.mesh.filtered_regions[elem_oneface[1]], :],
-                self.geometry.areas[elem_oneface[0]],
-                self.geometry.areas[elem_oneface[1]],
+                self.geometry.nodes[self.geometry.mesh.elements[elem_oneface[0]], :],
+                self.geometry.nodes[self.geometry.mesh.elements[elem_oneface[1]], :],
+                self.geometry.volumes[elem_oneface[0]],
+                self.geometry.volumes[elem_oneface[1]],
                 self.polydegree,
                 self.sigma_D,
                 self.solution[elem_oneface[0] * self.dim_elem:(elem_oneface[0] + 1) * self.dim_elem],
@@ -577,15 +589,15 @@ class DGFEM:
         if self.diffusion is not None:
 
             for v in list(self.boundary_information.elliptical_indecies):
-                element_idx = self.geometry.boundary_edges_to_element[v]
+                element_idx = self.geometry.boundary_facets_to_element[v]
 
                 dg_subnorm = error_d_face(
-                    self.geometry.nodes[self.geometry.boundary_edges[v, :], :],
+                    self.geometry.nodes[self.geometry.boundary_facets[v, :], :],
                     self.geometry.elem_bounding_boxes[element_idx],
                     self.edge_reference_quadrature,
                     self.orders,
-                    self.geometry.nodes[self.geometry.mesh.filtered_regions[element_idx], :],
-                    self.geometry.areas[element_idx],
+                    self.geometry.nodes[self.geometry.mesh.elements[element_idx], :],
+                    self.geometry.volumes[element_idx],
                     self.polydegree,
                     self.sigma_D,
                     self.solution[element_idx * self.dim_elem:(element_idx + 1) * self.dim_elem],
@@ -598,11 +610,11 @@ class DGFEM:
 
         if self.advection is not None:
 
-            for t in range(self.geometry.boundary_edges.shape[0]):
-                elem_bdface = self.geometry.boundary_edges_to_element[t]
+            for t in range(self.geometry.boundary_facets.shape[0]):
+                elem_bdface = self.geometry.boundary_facets_to_element[t]
 
                 dg_subnorm = error_a_face(
-                    self.geometry.nodes[self.geometry.boundary_edges[t, :], :],
+                    self.geometry.nodes[self.geometry.boundary_facets[t, :], :],
                     self.geometry.elem_bounding_boxes[elem_bdface],
                     self.edge_reference_quadrature,
                     self.orders,

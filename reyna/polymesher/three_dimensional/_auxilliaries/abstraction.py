@@ -71,10 +71,12 @@ class PolyMesh3D(metaclass=ABCMeta):
 
     """
 
-    def __init__(self, vertices, filtered_facets, filtered_regions, filtered_points, domain):
+    def __init__(self, vertices, filtered_facets, filtered_regions, facet_types, ridge_points, filtered_points, domain):
         self.vertices = vertices
         self.facets = filtered_facets
         self.elements = filtered_regions
+        self.facet_types = facet_types
+        self.ridge_points = ridge_points
         self.centers = filtered_points
         self.domain = domain
 
