@@ -1,0 +1,38 @@
+cff-version: "1.2.0"
+authors:
+- family-names: Evans
+  given-names: Matthew
+  orcid: "https://orcid.org/0009-0000-5950-3751"
+- family-names: Pryer
+  given-names: Tristan
+  orcid: "https://orcid.org/0000-0003-4499-0563"
+contact:
+- family-names: Evans
+  given-names: Matthew
+  orcid: "https://orcid.org/0009-0000-5950-3751"
+doi: 10.5281/zenodo.18339335
+message: If you use this software, please cite our article in the
+  Journal of Open Source Software.
+preferred-citation:
+  authors:
+  - family-names: Evans
+    given-names: Matthew
+    orcid: "https://orcid.org/0009-0000-5950-3751"
+  - family-names: Pryer
+    given-names: Tristan
+    orcid: "https://orcid.org/0000-0003-4499-0563"
+  date-published: 2026-02-03
+  doi: 10.21105/joss.09292
+  issn: 2475-9066
+  issue: 118
+  journal: Journal of Open Source Software
+  publisher:
+    name: Open Journals
+  start: 9292
+  title: "Reyna: A minimal overhead polytopal discontinuous Galerkin
+    finite element library"
+  type: article
+  url: "https://joss.theoj.org/papers/10.21105/joss.09292"
+  volume: 11
+title: "Reyna: A minimal overhead polytopal discontinuous Galerkin
+  finite element library"
