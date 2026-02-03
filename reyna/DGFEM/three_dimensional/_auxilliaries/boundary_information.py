@@ -69,12 +69,12 @@ class BoundaryInformation:
 
         """
         # TODO: need a better way to calculate this here for the center?
-        bdmids = 0.5 * (self.geometry.nodes[self.geometry.boundary_facets[:, 0], :] +
-                        self.geometry.nodes[self.geometry.boundary_facets[:, 1], :])
+        # bdmids = 0.5 * (self.geometry.nodes[self.geometry.boundary_facets[:, 0], :] +
+        #                 self.geometry.nodes[self.geometry.boundary_facets[:, 1], :])
 
         # TODO: use the average function here but have to be careful as each boundary facet can have an arbitrary number
         #  of edges
-        bdmids = np.mean(self.geometry.nodes[self.geometry.boundary_facets[:, 0], :], axis=0)
+        bdmids = np.array([np.mean(self.geometry.nodes[facet, :], axis=0) for facet in self.geometry.boundary_facets])
 
         # TODO: the remainder of this function is all correct however!
 

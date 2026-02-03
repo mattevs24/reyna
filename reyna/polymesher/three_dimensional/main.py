@@ -72,8 +72,10 @@ def poly_mesher_3d(domain: Domain3D, max_iterations: int = 100, **kwargs) -> Pol
             print(f"Iteration: {iteration}. Error: {error}")
 
     facet_types = np.sum(voronoi.ridge_points < n_points, axis=1)
+    print(facet_types)
     mask = facet_types > 0
-    filtered_facets = list(filter(lambda x: mask[voronoi.ridge_vertices.index(x)], voronoi.ridge_vertices))
+    filtered_facets = [voronoi.ridge_vertices[i] for i in range(len(voronoi.ridge_vertices)) if mask[i]]
+    # filtered_facets = list(filter(lambda x: mask[voronoi.ridge_vertices.index(x)], voronoi.ridge_vertices))
 
     poly_mesh = PolyMesh3D(
         voronoi.vertices, filtered_facets, elements[: n_points],

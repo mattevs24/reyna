@@ -126,9 +126,9 @@ class DGFEMGeometry:
         self.n_simplicies = self.simplicial_decomposition.shape[0]
         self.simplex_to_element = simplex_to_element
 
-        # Indicate the boundary and interior facets
-        self.boundary_facets = np.where(self.mesh.facet_types == 0)[0]
-        self.interior_facets = np.where(self.mesh.facet_types == 1)[0]
+        # Sort the boundary and interior facets
+        self.boundary_facets = [self.mesh.facets[i] for i in np.where(self.mesh.facet_types == 0)[0]]
+        self.interior_facets = [self.mesh.facets[i] for i in np.where(self.mesh.facet_types == 1)[0]]
 
         # # Facet to elements
         # self.boundary_facets_to_element = np.array([
@@ -146,8 +146,11 @@ class DGFEMGeometry:
 
         triangle_to_facet = []
 
-        # self.boundary_normals = np.zeros((len(self.boundary_facets), 3), dtype=float)
-        # self.interior_normals = np.zeros((len(self.interior_facets), 3), dtype=float)
+        self.boundary_normals = np.zeros((len(self.boundary_facets), 3), dtype=float)
+        self.interior_normals = np.zeros((len(self.interior_facets), 3), dtype=float)
+
+        boundary_idx = 0
+        interior_idx = 0
 
         for i, facet in enumerate(self.mesh.facets):
 
@@ -163,10 +166,13 @@ class DGFEMGeometry:
 
             normal = np.cross(Vt[0], Vt[1])
 
-            # if self.mesh.facet_types[i] == 0:
-            #     self.boundary_normals[np.argwhere(self.boundary_facets == i)[0]] = normal
-            # else:
-            #     self.interior_normals[np.argwhere(self.interior_facets == i)[0]] = normal
+            if self.mesh.facet_types[i] == 0:
+                self.boundary_normals[boundary_idx] = normal
+                # Need to assert these lie in the right direction -- i.e. outward pointing....
+                boundary_idx += 1
+            else:
+                self.interior_normals[interior_idx] = normal
+                interior_idx += 1
 
             projected_subtriangulation = Delaunay(vertices_2d)
 
