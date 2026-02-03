@@ -107,7 +107,7 @@ learning resource.
 
 The design philosophy is clarity first, a focused codebase with
 minimal dependencies (NumPy, SciPy, Shapely, Numba and Matplotlib)
-written so that users can readily inspect, modify and extend the
+written so that users can readily inspect, modify, and extend the
 implementation. The combination of polytopal DGFEMs with Python
 accessibility makes Reyna a practical platform for researchers
 developing new applications and for educators introducing advanced
@@ -192,7 +192,7 @@ underlying mathematics, reducing complexity and making it
 straightforward to experiment with new numerical schemes. Second, the
 example is entirely self-contained, which makes it well-suited to
 research demonstrations and teaching. The full workflow is visible,
-easy to follow and simple to adapt without low-level setup. While the
+easy to follow, and simple to adapt without low-level setup. While the
 example is kept deliberately short, the implementation remains
 faithful to the full mathematical formulation, and users can explore
 these details directly in the code. These qualities make Reyna a
@@ -202,7 +202,7 @@ methods and educators introducing advanced numerical techniques.
 # Acknowledgements
 
 The authors would like to acknowledge the support of Ansar Calloo,
-François Madiot and Luca Zanetti throughout this work. ME is supported
+François Madiot, and Luca Zanetti throughout this work. ME is supported
 by scholarships from the Statistical Applied Mathematics at Bath
 (SAMBa) EPSRC Centre for Doctoral Training (CDT) at the University of
 Bath under the project EP/S022945/1 and is also partially funded by
