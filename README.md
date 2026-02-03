@@ -1,6 +1,7 @@
 # reyna
 
 ![PyPI - Version](https://img.shields.io/pypi/v/reyna)
+[![status](https://joss.theoj.org/papers/496144994c1f21b19c47f687c88fa3b3/status.svg)](https://joss.theoj.org/papers/496144994c1f21b19c47f687c88fa3b3)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/reyna?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/reyna)
 [![License: MIT](https://img.shields.io/badge/License-MIT-success.svg)](https://opensource.org/licenses/MIT)
 ![docs](https://app.readthedocs.org/projects/reyna/badge/?version=latest)
