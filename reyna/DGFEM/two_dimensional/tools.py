@@ -3,7 +3,6 @@ import typing
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d as a3
-import matplotlib.cm as cm
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
@@ -62,7 +61,7 @@ def plot_DG(numerical_solution: np.ndarray, geometry: DGFEMGeometry, poly_degree
         Lege_ind = Basis_index2D(poly_degree)
         dim_elem = Lege_ind.shape[0]
 
-        cmap = cm.get_cmap('viridis')  # You can change 'viridis' to other colormaps like 'plasma', 'inferno', etc.
+        cmap = plt.get_cmap('viridis')  # You can change 'viridis' to other colormaps like 'plasma', 'inferno', etc.
         for t in range(geometry.n_elements):
             elem, BDbox = geometry.mesh.filtered_regions[t], geometry.elem_bounding_boxes[t]
             node = geometry.nodes[elem, :]

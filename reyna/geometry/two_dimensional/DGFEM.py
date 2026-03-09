@@ -20,7 +20,7 @@ class DGFEMGeometry:
 
     Attributes:
 
-        mesh (PolyMesh): The underlyting computational domain.
+        mesh (PolyMesh): The underlying computational domain.
 
         n_nodes (int): The number of vertices in the mesh.
         n_elements (int): The number of elements in the mesh.
