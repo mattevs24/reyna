@@ -23,9 +23,13 @@ class Agglomeration:
 
     def __init__(self, poly_mesh: PolyMesh, n_refinement_elements: typing.List[int]):
 
-        self.poly_meshes: typing.List[PolyMesh] = [poly_mesh]
+        if n_refinement_elements != np.unique(n_refinement_elements)[::-1]:
+            raise ValueError("Please make sure the elements in 'n_refinement_elements' are unique and in reverse "
+                             "order.")
+
         self.n_refinement_elements = n_refinement_elements
 
+        self.poly_meshes: typing.List[PolyMesh] = [poly_mesh]
         self.geometries: typing.List[DGFEMGeometry] = [DGFEMGeometry(poly_mesh)]
 
         self._agglomerate()
@@ -167,11 +171,12 @@ def _agglomeration_geometry(membership: np.ndarray, geometry: DGFEMGeometry) -> 
 
         while True:
             neighbors = edge_adjacency[current]
-            next_vertex = neighbors[0] if neighbors[0] != prev else neighbors[1]
-            if next_vertex == start:
-                break
-            element_edges.append(next_vertex)
-            prev, current = current, next_vertex
+            if neighbors:
+                next_vertex = neighbors[0] if neighbors[0] != prev else neighbors[1]
+                if next_vertex == start:
+                    break
+                element_edges.append(next_vertex)
+                prev, current = current, next_vertex
 
         # Ensure CCW
         area = 0
