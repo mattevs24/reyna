@@ -13,6 +13,24 @@ from reyna.geometry.two_dimensional.DGFEM import DGFEMGeometry
 
 @dataclass
 class Agglomeration:
+    """
+    This class is a geometry function which is able to take a given PolyMesh object and compuate a variety of
+    refinements based on user specified values.
+
+    Attributes:
+        n_refinement_elements (typing.List[int]): The numbers of elements in each of the agglomerations.
+        poly_meshes (typing.List[PolyMesh]): The list of polygonal meshes at the various agglomerations.
+        geometries (typing.List[DGFEMGeometry]): The list of DGFEM geometries asscoated to the agglomerations.
+
+    Notes:
+        Unlike the original DGFEMGeometry object, the elements here may not be convex. In fact, this is almost certainly
+        true. This code is able to handle this -- the subtle difference being that each PolyMesh object has no
+        'filtered_points' associated to it.
+
+    See Also:
+        'DGFEMGeometry' for more information on the original geometry generation.
+
+    """
 
     def __init__(self, poly_mesh: PolyMesh, n_refinement_elements: typing.List[int]):
 
