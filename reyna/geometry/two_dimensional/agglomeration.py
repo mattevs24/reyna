@@ -11,8 +11,7 @@ from collections import defaultdict, deque
 
 import numpy as np
 from pymetis import part_graph
-
-from scipy.sparse import csr_matrix, find
+from shapely import Polygon, Point
 
 from reyna.polymesher.two_dimensional._auxilliaries.abstraction import PolyMesh
 
@@ -36,10 +35,10 @@ class Agglomeration:
         for i, n_parts in enumerate(self.n_refinement_elements):
 
             adjacency_list = _adjacency_graph(self.geometries[i].interior_edges_to_element)
-
             membership = _metis_with_clean_up(adjacency_list, n_parts)
+            _, membership = np.unique(membership, return_inverse=True)
 
-            agglomerated_mesh, agglomerated_geometry = _agglomeration_geometry(np.array(membership), self.geometries[i])
+            agglomerated_mesh, agglomerated_geometry = _agglomeration_geometry(membership, self.geometries[i])
             self.poly_meshes.append(agglomerated_mesh)
             self.geometries.append(agglomerated_geometry)
 
@@ -107,13 +106,13 @@ def _metis_with_clean_up(adjacency_list: typing.List[np.ndarray], n_parts: int) 
         components = _connected_components_in_partition(part, len(membership))
 
         if len(components) <= 1:
-            continue  # already connected -- move on
+            continue  # already connected (or empty) -- move on
 
         components.sort(key=len, reverse=True)  # Sort by size descending
 
         # Reassign all other components
         for comp in components[1:]:
-            # Cycle over the smaller components to connect them later
+            # Cycle over the smaller components to connect them with other parts
             for elem in comp:
 
                 # Find neighboring partitions (excluding current part)
@@ -135,17 +134,13 @@ def _agglomeration_geometry(membership: np.ndarray, geometry: DGFEMGeometry) -> 
     elem_bounding_boxes = []
     agglomerated_areas = []
     agglomerated_filtered_regions = []
+    h_s = []
 
-    total_edge = np.empty((0, 2), dtype=int)
+    for i in range(np.max(membership)+1):
 
-    for i in range(np.max(membership) + 1):
-
-        agglomerated_elements = np.argwhere(membership == i).ravel()  # This is linear.....I think
-
-        if len(agglomerated_elements) == 0:
-            continue
-
-        agglomerated_areas.append(np.sum(geometry.areas[agglomerated_elements]))
+        # Get the elements associated with the new region
+        agglomerated_elements = np.argwhere(membership == i).ravel()
+        agglomerated_areas.append(np.sum(geometry.areas[agglomerated_elements]))  # areas = sum(sub_areas)
 
         # Combine the elements here.....
         edge_count = defaultdict(int)
@@ -156,17 +151,17 @@ def _agglomeration_geometry(membership: np.ndarray, geometry: DGFEMGeometry) -> 
                 v1, v2 = edges[j], edges[(j + 1) % _n]
                 edge_count[tuple(sorted([v1, v2]))] += 1
 
-        element_edges = [edge for edge, count in edge_count.items() if count == 1]  # TODO: Error \/ traced to here
-        total_edge = np.concatenate((total_edge, np.array(element_edges)), axis=0)
+        element_edges = [edge for edge, count in edge_count.items() if count == 1]
 
+        # Agglomerated adjacency for the vertices
         edge_adjacency = defaultdict(list)
         for v1, v2 in element_edges:
             edge_adjacency[v1].append(v2)
             edge_adjacency[v2].append(v1)
 
         # Traverse the edge to order the edges to the element
-        start = min(edge_adjacency.keys())  # TODO: intermitent error here....? empty .keys()?
-        element_edges = [start]
+        start = min(edge_adjacency.keys())
+        element_edges: typing.List[int] = [start]
         current = start
         prev = None
 
@@ -184,7 +179,7 @@ def _agglomeration_geometry(membership: np.ndarray, geometry: DGFEMGeometry) -> 
             x1, y1 = geometry.nodes[element_edges[k], :]
             x2, y2 = geometry.nodes[element_edges[(k + 1) % n], :]
             area += x1 * y2 - x2 * y1
-        area *= 0.5
+        area *= 0.5  # This matches the sum formula above (up to sign error)
 
         if area < 0:
             element_edges.reverse()
@@ -192,35 +187,60 @@ def _agglomeration_geometry(membership: np.ndarray, geometry: DGFEMGeometry) -> 
         elem_bounding_boxes.append([np.min(geometry.nodes[element_edges, 0]), np.max(geometry.nodes[element_edges, 0]),
                                     np.min(geometry.nodes[element_edges, 1]), np.max(geometry.nodes[element_edges, 1])])
 
+        poly = Polygon(geometry.nodes[element_edges, :])
+        box = poly.minimum_rotated_rectangle
+        _x, _y = box.exterior.coords.xy
+        edge_length = (Point(_x[0], _y[0]).distance(Point(_x[1], _y[1])),
+                       Point(_x[1], _y[1]).distance(Point(_x[2], _y[2])))
+        h_s.append(max(edge_length))
+
         agglomerated_filtered_regions.append(np.array(element_edges))
 
-    # Create the interior edges.
-    sparse_mat = csr_matrix((np.tile([1], total_edge.shape[0]), (total_edge[:, 1], total_edge[:, 0])))
-    i, j, s = find(sparse_mat)
+    # 'initialise' the geometry object
+    agglomerated_geometry = DGFEMGeometry.__new__(DGFEMGeometry)
 
-    agglomerated_interior_edges = np.concatenate((j[s == 2, np.newaxis], i[s == 2, np.newaxis]), axis=1)
+    # Initial information
+    agglomerated_geometry.h_s = np.array(h_s)
+    agglomerated_geometry.h = np.max(agglomerated_geometry.h_s)
+    agglomerated_geometry.areas = np.array(agglomerated_areas)
+    agglomerated_geometry.elem_bounding_boxes = elem_bounding_boxes
 
-    edge_to_elements = {}
+    # Agglomeratred poly-mesh information for both the mesh and the geometry.
+    agglomerated_poly_mesh = PolyMesh(
+        vertices=geometry.nodes,  # This is never touched again -- can be empty -- left for testing
+        filtered_regions=agglomerated_filtered_regions,
+        filtered_points=np.empty((0, 2)),  # Never again used.
+        domain=geometry.mesh.domain
+    )
 
-    for idx, element in enumerate(agglomerated_filtered_regions):
-        element_edges = [(min(a, b), max(a, b)) for i, a in enumerate(element) for b in element[i + 1:]]
+    agglomerated_geometry.mesh = agglomerated_poly_mesh
 
-        for edge in element_edges:
-            if edge in edge_to_elements:
-                edge_to_elements[edge].append(idx)
-            else:
-                edge_to_elements[edge] = [idx]
+    edge_to_elements = defaultdict(list)
 
-    temp_int = [
-        sorted(edge_to_elements.get((min(edge[0], edge[1]), max(edge[0], edge[1])), []))
-        for edge in agglomerated_interior_edges
-    ]
+    # Build global edge -> elements map
+    for elem, vertices in enumerate(agglomerated_filtered_regions):
+        n = len(vertices)
+        for i in range(n):
+            vertices: typing.List[float]  # This is superfluous
+            edge = (min(vertices[i], vertices[(i + 1) % n]), max(vertices[i], vertices[(i + 1) % n]))
+            edge_to_elements[edge].append(elem)
 
-    interior_edges_to_element = np.array(temp_int)
+    agglomerated_interior_edges = []
+    interior_edges_to_element = []
+
+    # Loop over edges to detect interior edges
+    for edge, elems in edge_to_elements.items():
+        if len(elems) == 2:
+            agglomerated_interior_edges.append(edge)
+            interior_edges_to_element.append(elems)
+
+    agglomerated_interior_edges = np.array(agglomerated_interior_edges, dtype=int)
+    interior_edges_to_element = np.array(interior_edges_to_element, dtype=int)
 
     agglomerated_interior_normals = np.zeros((0, 2), dtype=float)
+
     if agglomerated_interior_edges.shape[0] > 1:
-        # One element is not guarenteed to have any interior edges
+        # A One element domain is not guarenteed to have any interior edges
 
         int_tan_vec = (geometry.nodes[agglomerated_interior_edges[:, 0], :] -
                        geometry.nodes[agglomerated_interior_edges[:, 1], :])
@@ -230,52 +250,26 @@ def _agglomeration_geometry(membership: np.ndarray, geometry: DGFEMGeometry) -> 
         int_tan_vec[:, 1] *= -1
         int_nor_vec = np.divide(int_tan_vec, int_normalisation_consts[:, np.newaxis])
 
-        # TODO: May need something similar for the advection case?
-        # int_outward = (geometry.mesh.filtered_points[interior_edges_to_element[:, 1], :] -
-        #                geometry.mesh.filtered_points[interior_edges_to_element[:, 0], :])
-        #
-        # int_index = np.sum(int_nor_vec * int_outward, axis=1) < 0.0
-        # int_nor_vec[int_index, :] = -int_nor_vec[int_index, :]
         agglomerated_interior_normals = int_nor_vec
 
-    triangle_to_agglomorated_polygon = np.array(
-        [membership[geometry.triangle_to_polygon[i]] for i in range(geometry.n_triangles)]
-    )
-
-    agglomerated_poly_mesh = PolyMesh(
-        vertices=geometry.nodes,  # This is never touched again -- can be empty -- left for testing
-        filtered_regions=agglomerated_filtered_regions,
-        filtered_points=np.empty((0, 2)),  # Never again used.
-        domain=geometry.mesh.domain
-    )
-
-    agglomerated_geometry = DGFEMGeometry.__new__(DGFEMGeometry)
-    agglomerated_geometry.mesh = agglomerated_poly_mesh
-
-    # Initial information
-    agglomerated_geometry.n_nodes = geometry.n_nodes
-    agglomerated_geometry.n_elements = np.max(membership) + 1
-    agglomerated_geometry.nodes = geometry.nodes
-    agglomerated_geometry.elem_bounding_boxes = elem_bounding_boxes
+    # Interior edges and normals
+    agglomerated_geometry.interior_edges = agglomerated_interior_edges
+    agglomerated_geometry.interior_edges_to_element = interior_edges_to_element
+    agglomerated_geometry.interior_normals = agglomerated_interior_normals
 
     # Boundary edges and normals
     agglomerated_geometry.boundary_edges = geometry.boundary_edges
     agglomerated_geometry.boundary_edges_to_element = membership[geometry.boundary_edges_to_element]
     agglomerated_geometry.boundary_normals = geometry.boundary_normals
 
-    # Interior edges and normals
-    agglomerated_geometry.interior_edges = agglomerated_interior_edges  # TODO: optimise to reuse.
-    agglomerated_geometry.interior_edges_to_element = interior_edges_to_element
-    agglomerated_geometry.interior_normals = agglomerated_interior_normals
-
     # Subtriangulation information
     agglomerated_geometry.subtriangulation = geometry.subtriangulation
     agglomerated_geometry.n_triangles = geometry.n_triangles
-    agglomerated_geometry.triangle_to_polygon = triangle_to_agglomorated_polygon
+    agglomerated_geometry.triangle_to_polygon = membership[geometry.triangle_to_polygon]
 
-    # Final information
-    agglomerated_geometry.h = None
-    agglomerated_geometry.h_s = None  # These two /\ need to be reran with the bounding_boxes work and new filtered_regions
-    agglomerated_geometry.areas = np.array(agglomerated_areas)
+    # Further information
+    agglomerated_geometry.n_nodes = geometry.n_nodes
+    agglomerated_geometry.n_elements = membership.max() + 1
+    agglomerated_geometry.nodes = geometry.nodes
 
     return agglomerated_poly_mesh, agglomerated_geometry
