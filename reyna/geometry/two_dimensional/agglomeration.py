@@ -1,10 +1,3 @@
-"""
-This file will contain all the code pertaining to the agglomeration set-up.
-This will nee the use of metis as the base and the geometry will be build on top of this to ensure all the normals
-work as expected -- As a side note I'm not sure if the outward normals really matter in the code? Need to double check
-how the geometry is generated and can go from here. The set-up is simple; input the one PolyMesh object and a list of
-numbers of elements required -- agglomerate from here first to the finest n_elements and then refine this again.
-"""
 import typing
 from dataclasses import dataclass
 from collections import defaultdict, deque
@@ -23,7 +16,7 @@ class Agglomeration:
 
     def __init__(self, poly_mesh: PolyMesh, n_refinement_elements: typing.List[int]):
 
-        if n_refinement_elements != np.unique(n_refinement_elements)[::-1]:
+        if np.any(n_refinement_elements != np.unique(n_refinement_elements)[::-1]):
             raise ValueError("Please make sure the elements in 'n_refinement_elements' are unique and in reverse "
                              "order.")
 
@@ -34,13 +27,22 @@ class Agglomeration:
 
         self._agglomerate()
 
-    def _agglomerate(self):
+    def _agglomerate(self) -> None:
+
+        """
+        The main function which performs the agglomeration steps. This recursively generates the meshes in such a
+        way that they are nested. The corresponding DGFEMGeometry objects are generated simultaneously in an optimised
+        manner.
+
+        Returns:
+            None
+
+        """
 
         for i, n_parts in enumerate(self.n_refinement_elements):
 
             adjacency_list = _adjacency_graph(self.geometries[i].interior_edges_to_element)
             membership = _metis_with_clean_up(adjacency_list, n_parts)
-            _, membership = np.unique(membership, return_inverse=True)
 
             agglomerated_mesh, agglomerated_geometry = _agglomeration_geometry(membership, self.geometries[i])
             self.poly_meshes.append(agglomerated_mesh)
@@ -57,6 +59,7 @@ def _adjacency_graph(interior_edges_to_element: np.ndarray) -> typing.List[np.nd
 
     Returns:
         (typing.List[np.ndarray]): This is the list of neighbours to each element.
+
     """
 
     adjacency_list = [[] for _ in range(np.max(interior_edges_to_element) + 1)]
@@ -72,6 +75,22 @@ def _adjacency_graph(interior_edges_to_element: np.ndarray) -> typing.List[np.nd
 
 
 def _metis_with_clean_up(adjacency_list: typing.List[np.ndarray], n_parts: int) -> np.ndarray:
+
+    """
+    This function takes in an adjacency list and a given number of elements and performs a METIS step to partition the
+    graph into 'n_parts' (or there abouts). METIS is not flawless and can produce disconnected subgraphs; this function
+    is designed to clean this up. This function retains the largest subsection and splits the remaining pieces into
+    their most common neighbours (by number of shared facets). Additionally, METIS may not be able to produce exactly
+    'n_parts' subgraphs; in this case, it tends to produce a few less elements than expected.
+
+    Args:
+        adjacency_list (typing.List[np.ndarray]): This is the list of neighbours to each element.
+        n_parts (int): The number of parts to partition the graph into.
+
+    Returns:
+        (np.ndarray): This is an array containing the 'membership' of each element to its agglomerated subgraph.
+
+    """
 
     def _connected_components_in_partition(_pid, _n):
         visited = np.zeros(_n, dtype=bool)
@@ -126,6 +145,9 @@ def _metis_with_clean_up(adjacency_list: typing.List[np.ndarray], n_parts: int) 
                     # If neighbours exist -- push to connect them -- this may be a superfluous check.
                     membership[elem] = np.argmax(np.bincount(neighbouring_parts))
 
+    # Tidy up duplicated elements.
+    _, membership = np.unique(membership, return_inverse=True)
+
     return membership
 
 
@@ -133,6 +155,16 @@ def _agglomeration_geometry(membership: np.ndarray, geometry: DGFEMGeometry) -> 
     """
     This function is a special one -- This needs to take in the metis refinement and agglomerate the geometry. This also
     returns the PolyMesh object associated with the agglomerated geometry.
+
+    Args:
+        membership (np.ndarray): This is an array containing the 'membership' of each element to its agglomerated
+            subgraph.
+        geometry (DGFEMGeometry): This is the DGFEM geometry object for the original geometry; the agglomerated geometry
+            will take on variables associated to this.
+
+    Returns:
+        (PolyMesh, DGFEMGeometry): The agglomerated PolyMesh object and its associated geometry.
+
     """
 
     elem_bounding_boxes = []
